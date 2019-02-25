@@ -1034,7 +1034,7 @@ class PHPFina implements engine_methods
                 if ($n>0) $average = $sum / $n;
             }
             
-            if ($time>=$start) {
+            if ($time>=$start && $time<$end) {
                 $data[] = array($time*1000,$average);
             }
 
