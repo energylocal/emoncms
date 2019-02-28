@@ -206,7 +206,7 @@ $iconpath = $path."Modules/cydynni/app/";
     </div>
 
     <div id="footer">
-        <?php echo _('Powered by '); ?><a href="http://openenergymonitor.org">OpenEnergyMonitor.org</a>
+        <?php echo _('Pweru gan '); ?><a href="http://openenergymonitor.org">OpenEnergyMonitor.org</a>
         <span> | <a href="https://github.com/emoncms/emoncms/releases"><?php echo $emoncms_version; ?></a></span>
     </div>
 

@@ -348,27 +348,27 @@ class User
         return array('success'=>false, 'message'=>"Invalid email or verification key");
     }
 
-    public function login($username, $password, $remembermecheck)
+    public function login($username_or_email, $password, $remembermecheck)
     {
         $remembermecheck = (int) $remembermecheck;
 
-        if (!$username || !$password) return array('success'=>false, 'message'=>_("Username or password empty"));
+        if (!$username_or_email || !$password) return array('success'=>false, 'message'=>_("Username or password empty"));
 
         // filter out all except for alphanumeric white space and dash
         // if (!ctype_alnum($username))
-        $username_out = preg_replace('/[^\p{N}\p{L}_\s-]/u','',$username);
+        // $username_out = preg_replace('/[^\p{N}\p{L}_\s-]/u','',$username);
 
-        if ($username_out!=$username) return array('success'=>false, 'message'=>_("Username must only contain a-z 0-9 dash and underscore, if you created an account before this rule was in place enter your username without the non a-z 0-9 dash underscore characters to login and feel free to change your username on the profile page."));
+        // if ($username_out!=$username) return array('success'=>false, 'message'=>_("Username must only contain a-z 0-9 dash and underscore, if you created an account before this rule was in place enter your username without the non a-z 0-9 dash underscore characters to login and feel free to change your username on the profile page."));
 
         // 28/04/17: Changed explicitly stated fields to load all with * in order to access startingpage
         // without cuasing an error if it has not yet been created in the database.
-        if (!$stmt = $this->mysqli->prepare("SELECT id,password,salt,apikey_write,admin,language,startingpage,email_verified,timezone FROM users WHERE username=?")) {
+        if (!$stmt = $this->mysqli->prepare("SELECT id,username,password,salt,apikey_write,admin,language,startingpage,email_verified,timezone FROM users WHERE username=? OR email=?")) {
             return array('success'=>false, 'message'=>_("Database error, you may need to run database update"));
         }
-        $stmt->bind_param("s",$username);
+        $stmt->bind_param("ss",$username_or_email,$username_or_email);
         $stmt->execute();
         
-        $stmt->bind_result($userData_id,$userData_password,$userData_salt,$userData_apikey_write,$userData_admin,$userData_language,$userData_startingpage,$email_verified,$userData_timezone);
+        $stmt->bind_result($userData_id,$username,$userData_password,$userData_salt,$userData_apikey_write,$userData_admin,$userData_language,$userData_startingpage,$email_verified,$userData_timezone);
         $result = $stmt->fetch();
         $stmt->close();
         
@@ -378,7 +378,7 @@ class User
         
         if (!$result) return array('success'=>false, 'message'=>_("Username does not exist"));
         if ($this->email_verification && !$email_verified) return array('success'=>false, 'message'=>_("Please verify email address"));
-
+        
         //--------------------------------------------------------------------
         include "Modules/remoteaccess/remoteaccess_userlink.php";
         $result = remoteaccess_userlink_existing($this->mysqli,$userData_id,$username,$password);
