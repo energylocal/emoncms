@@ -378,13 +378,7 @@ class User
         
         if (!$result) return array('success'=>false, 'message'=>_("Username does not exist"));
         if ($this->email_verification && !$email_verified) return array('success'=>false, 'message'=>_("Please verify email address"));
-        
-        //--------------------------------------------------------------------
-        include "Modules/remoteaccess/remoteaccess_userlink.php";
-        $result = remoteaccess_userlink_existing($this->mysqli,$userData_id,$username,$password);
-        if (!isset($result["success"]) || !$result["success"]) return $result;
-        //--------------------------------------------------------------------
-        
+                
         $hash = hash('sha256', $userData_salt . hash('sha256', $password));
 
         if ($hash != $userData_password)
@@ -393,6 +387,12 @@ class User
         }
         else
         {
+            //--------------------------------------------------------------------
+            include "Modules/remoteaccess/remoteaccess_userlink.php";
+            $result = remoteaccess_userlink_existing($this->mysqli,$userData_id,$username,$password);
+            if (!isset($result["success"]) || !$result["success"]) return $result;
+            //--------------------------------------------------------------------
+            
             session_regenerate_id();
             $_SESSION['userid'] = $userData_id;
             $_SESSION['username'] = $username;
