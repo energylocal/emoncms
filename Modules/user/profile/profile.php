@@ -54,9 +54,10 @@ function languagecode_to_name($langs) {
         <h3><?php echo _('My account'); ?></h3>
 
         <div id="account">
+            <!--
             <div class="account-item">
                 <span class="muted"><?php echo _('User ID'); ?></span><br><span class="userid"></span>
-            </div>
+            </div>-->
 
             <div class="account-item">
                 <span class="muted"><?php echo _('Username'); ?></span>
@@ -101,6 +102,7 @@ function languagecode_to_name($langs) {
             <input id="change-password-cancel" type="submit" class="btn" value="<?php echo _('Cancel'); ?>" />
         </div>
         
+        <!--
         <br>
         <div id="account">
           <div class="account-item">
@@ -114,7 +116,8 @@ function languagecode_to_name($langs) {
           </div>
         </div>
         
-	    <br>
+        
+	      <br>
         <div class="account-item">
             <button class="btn btn-danger" id="deleteall"><?php echo _('Delete my account'); ?></button>
         </div>
@@ -138,11 +141,13 @@ function languagecode_to_name($langs) {
 	          </tr>
 	        </table>
         </div>
+        -->
     </div>
     <div class="span8">
         <h3><?php echo _('My Profile'); ?></h3>
         <div id="table"></div>
         
+        <!--
         <div id="preferences-section_update_warning" class="well hidden">
             <h4><?php echo _('Please update your database'); ?></h4>
         </div>
@@ -156,7 +161,6 @@ function languagecode_to_name($langs) {
             </h4>
             <form id="preferences" class="form-horizontal" style="margin-bottom:.2em">
             
-                <!-- start preference section  -->
                 <div class="control-group">
                     <label class="control-label"><?php echo _('Device Module Beta'); ?></label>
                     <div class="controls" data-prop="deviceView">
@@ -166,10 +170,10 @@ function languagecode_to_name($langs) {
                         </div>
                     </div>
                 </div>
-                <!-- end preference section -->
 
             </form>
         </div>
+        --> 
     </div>
 </div>
 
@@ -214,6 +218,7 @@ function languagecode_to_name($langs) {
 
     //QR COde Generation
     var urlCleaned = window.location.href.replace("user/view" ,"");
+    /*
     var qrcode = new QRCode(document.getElementById("qr_apikey"), {
         text: urlCleaned + "app?readkey=" + list.data.apikey_read  + "#myelectric",
         width: 192,
@@ -222,26 +227,27 @@ function languagecode_to_name($langs) {
         colorLight : "#ffffff",
         correctLevel : QRCode.CorrectLevel.H
     }); //Re-designed on-board QR generation using javascript
+    */
 
     // Need to add an are you sure modal before enabling this.
     // $("#newapikeyread").click(function(){user.newapikeyread()});
     // $("#newapikeywrite").click(function(){user.newapikeywrite()});
 
     // Clipboard code
-    document.getElementById("copyapiwritebtn").addEventListener("click", function() {
-      copyToClipboardMsg(document.getElementById("copyapiwrite"), "msg");
-    });
-    document.getElementById("copyapireadbtn").addEventListener("click", function() {
-      copyToClipboardMsg(document.getElementById("copyapiread"), "msg");
-    });
+    //document.getElementById("copyapiwritebtn").addEventListener("click", function() {
+    //  copyToClipboardMsg(document.getElementById("copyapiwrite"), "msg");
+    //});
+    //document.getElementById("copyapireadbtn").addEventListener("click", function() {
+    //  copyToClipboardMsg(document.getElementById("copyapiread"), "msg");
+    //});
 
     var currentlanguage = list.data.language;
 
     list.fields = {
-        'gravatar':{'title':"<?php echo _('Gravatar'); ?>", 'type':'gravatar'},
-        'name':{'title':"<?php echo _('Name'); ?>", 'type':'text'},
-        'location':{'title':"<?php echo _('Location'); ?>", 'type':'text'},
-        'bio':{'title':"<?php echo _('Bio'); ?>", 'type':'text'},
+        //'gravatar':{'title':"<?php echo _('Gravatar'); ?>", 'type':'gravatar'},
+        //'name':{'title':"<?php echo _('Name'); ?>", 'type':'text'},
+        //'location':{'title':"<?php echo _('Location'); ?>", 'type':'text'},
+        //'bio':{'title':"<?php echo _('Bio'); ?>", 'type':'text'},
         'timezone':{'title':"<?php echo _('Timezone'); ?>", 'type':'timezone'},
         'language':{'title':"<?php echo _('Language'); ?>", 'type':'language', 'options':lang, 'label':lang_name},
         'startingpage':{'title':"<?php echo _('Starting page'); ?>", 'type':'text'}
