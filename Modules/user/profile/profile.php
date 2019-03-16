@@ -13,7 +13,7 @@
 // no direct access
 defined('EMONCMS_EXEC') or die('Restricted access');
 
-global $path;
+global $path,$session;
 $languages = array();
 $v=1;
 
@@ -102,7 +102,7 @@ function languagecode_to_name($langs) {
             <input id="change-password-cancel" type="submit" class="btn" value="<?php echo _('Cancel'); ?>" />
         </div>
         
-        <!--
+        <?php if (isset($session["admin"]) && $session["admin"]) { ?>
         <br>
         <div id="account">
           <div class="account-item">
@@ -141,7 +141,7 @@ function languagecode_to_name($langs) {
 	          </tr>
 	        </table>
         </div>
-        -->
+        <?php } ?>
     </div>
     <div class="span8">
         <h3><?php echo _('My Profile'); ?></h3>
