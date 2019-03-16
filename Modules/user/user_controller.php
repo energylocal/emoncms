@@ -32,9 +32,9 @@ function user_controller()
         if ($route->action == 'login' && !$session['read']) $result = view("Modules/user/login_block.php", array('allowusersregister'=>$allowusersregister,'verify'=>array()));
         if ($route->action == 'view' && $session['write']) $result = view("Modules/user/profile/profile.php", array());
         
-        if ($route->action == 'logout' && $session['read']) {
+        if ($route->action == 'logout') {
             $user->logout(); 
-            header('Location: '.$path);
+            header('Location: '."/cydynni");
         }
         
         if ($route->action == 'verify' && $email_verification && !$session['read'] && isset($_GET['key'])) { 
