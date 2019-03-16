@@ -57,13 +57,13 @@ function user_controller()
         }
 
         if ($route->action == 'changeusername' && $session['write']) $result = $user->change_username($session['userid'],get('username'));
-        if ($route->action == 'changeemail' && $session['write']) $result = $user->change_email($session['userid'],get('email'));
+        // if ($route->action == 'changeemail' && $session['write']) $result = $user->change_email($session['userid'],get('email'));
         if ($route->action == 'changepassword' && $session['write']) $result = $user->change_password($session['userid'],post('old'),post('new'));
         
         if ($route->action == 'passwordreset') $result = $user->passwordreset(get('username'),get('email'));
         // Apikey
-        if ($route->action == 'newapikeyread' && $session['write']) $result = $user->new_apikey_read($session['userid']);
-        if ($route->action == 'newapikeywrite' && $session['write']) $result = $user->new_apikey_write($session['userid']);
+        // if ($route->action == 'newapikeyread' && $session['write']) $result = $user->new_apikey_read($session['userid']);
+        // if ($route->action == 'newapikeywrite' && $session['write']) $result = $user->new_apikey_write($session['userid']);
 
         if ($route->action == 'auth' && !$session['read']) $result = $user->get_apikeys_from_login(post('username'),post('password'));
 
@@ -75,7 +75,7 @@ function user_controller()
         if ($route->action == 'gettimezone' && $session['read']) $result = $user->get_timezone($session['userid']);
         if ($route->action == 'gettimezones' && $session['read']) $result = $user->get_timezones();
         
-        if ($route->action == "deleteall" && $session['write']) {
+        if ($route->action == "deleteall" && $session['write'] && $session['admin']) {
             $route->format = "text";
             $userid = $session['userid'];
             require "Modules/user/deleteuser.php";

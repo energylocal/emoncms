@@ -126,7 +126,10 @@
     }
     
     // 4) Language
+
     if (!isset($session['lang'])) $session['lang']='cy_GB';    
+    if (isset($_GET['lang']) && $_GET['lang']=="en") $session['lang'] = "en_GB";
+    if (isset($_GET['lang']) && $_GET['lang']=="cy") $session['lang'] = "cy_GB";
     set_emoncms_lang($session['lang']);
 
     // 5) Get route and load controller

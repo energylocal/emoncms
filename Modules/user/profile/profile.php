@@ -70,7 +70,7 @@ function languagecode_to_name($langs) {
             </div>
             <div class="account-item">
                 <span class="muted"><?php echo _('Email'); ?></span>
-                <span id="email-view"><br><span class="email"></span> <a id="edit-email" style="float:right"><?php echo _('Edit'); ?></a></span>
+                <span id="email-view"><br><span class="email"></span> <!--<a id="edit-email" style="float:right"><?php echo _('Edit'); ?></a>--></span>
                 <div id="edit-email-form" class="input-append" style="display:none">
                     <input class="span2" type="text" style="width:150px">
                     <button class="btn" type="button"><?php echo _('Save'); ?></button>
