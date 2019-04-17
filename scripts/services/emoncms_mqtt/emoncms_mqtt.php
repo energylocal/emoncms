@@ -329,7 +329,10 @@
 
             if (!isset($dbinputs[$nodeid])) {
                 $dbinputs[$nodeid] = array();
-                if ($device && method_exists($device,"create")) $device->create($userid,$nodeid,null,null,null);
+                if ($device && method_exists($device,"create")) {
+                    $device->create($userid,$nodeid,null,null,null);
+                    $log->error("Device create: ".$userid." ".$nodeid);
+                }
             }
 
             $tmp = array();
