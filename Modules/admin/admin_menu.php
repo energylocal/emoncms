@@ -9,10 +9,13 @@
         'order' => 'b'
     );
 
-    $menu['sidebar']['emoncms'][] = array(
-        'text' => _("Admin"),
-        'path' => 'admin/view',
-        'active' => 'admin',
-        'icon' => 'tasks',
-        'order' => 'b7'
-    );
+    global $session;
+    if ($session['admin']) {
+        $menu['sidebar']['emoncms'][] = array(
+            'text' => _("Admin"),
+            'path' => 'admin/view',
+            'active' => 'admin',
+            'icon' => 'tasks',
+            'order' => 'b7'
+        );
+    }

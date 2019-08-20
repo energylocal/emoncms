@@ -1,7 +1,7 @@
 <?php
 
 global $session;
-
+/*
 $menu['right'][] = array(
     'text' => _("Add Bookmark"),
     'icon' => 'plus',
@@ -14,7 +14,7 @@ $menu['user'][] = array(
     'path' => 'user/bookmarks',
     'icon' => 'star',
     'order' => 2
-);
+);*/
 $menu['user'][] = array(
     'text' => _("My Account"),
     'icon' => 'user',

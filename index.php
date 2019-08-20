@@ -335,7 +335,7 @@
             
             // EMONCMS MENU
             if($session['write']){
-                $menu['tabs'][] = array(
+                /*$menu['tabs'][] = array(
                     'icon'=>'menu',
                     'title'=> _("Emoncms"),
                     'text'=> _("Setup"),
@@ -344,7 +344,7 @@
                     'data'=> array(
                         'sidebar' => '#sidebar_emoncms'
                     )
-                );
+                );*/
             }
 
             include_once ("Lib/misc/nav_functions.php");
@@ -367,7 +367,7 @@
             if (!$session['read']) {
                 $output['page_classes'][] = 'collapsed manual';
             } else {
-                $output['page_classes'][] = 'auto';
+                if (!in_array('manual',$output['page_classes'])) $output['page_classes'][] = 'auto';
             }
             print view($themeDir . "theme.php", $output);
         }

@@ -47,7 +47,10 @@ function user_controller()
                 'v' => 3
             ));
         }
-        if ($route->action == 'view' && $session['write']) $result = view("Modules/user/profile/profile.php", array());
+        if ($route->action == 'view' && $session['write']) {
+            $result = view("Modules/user/profile/profile.php", array());
+            return array('content'=>$result,'page_classes'=>array('collapsed','manual'));
+        }
         
         if ($route->action == 'logout') {
 

@@ -184,7 +184,7 @@ if (session_status() == PHP_SESSION_NONE) {
 // $expanded = !empty($_COOKIE['bookmarks_collapsed']) && $_COOKIE['bookmarks_collapsed']!=='true';
 $expanded = true;
 
-if($session['write']){ ?>
+/* if($session['write']){ ?>
     <div id="footer_nav" class="nav <?php echo $expanded ? 'expanded':''?>"<?php if(empty($bookmarks)) echo ' style="display:none"' ?>>
         <?php
         echo makeLink(array(
@@ -222,4 +222,4 @@ if($session['write']){ ?>
         <!-- used to add more bookmarks -->
         <template id="bookmark_link"><li><a href=""></a></li></template>
     </div>
-<?php } ?>
+<?php } */ ?>

@@ -147,34 +147,6 @@ function languagecode_to_name($langs) {
         <h3><?php echo _('My Profile'); ?></h3>
         <div id="table"></div>
         
-        <!--
-        <div id="preferences-section_update_warning" class="well hidden">
-            <h4><?php echo _('Please update your database'); ?></h4>
-        </div>
-        <?php /*
-        <div id="preferences-section" class="well hidden">
-            <h4><?php echo _('Beta Features'); ?>:
-                <small class="text-info" id="preferences-errors"
-                  data-saved-text="<?php echo _('Saved'); ?>" 
-                  data-error-text="<?php echo _('Error'); ?>" 
-                  data-loading-text="<?php echo _('Saving...'); ?>"
-                ></small>
-            </h4>
-            <form id="preferences" class="form-horizontal" style="margin-bottom:.2em">
-            
-                <div class="control-group">
-                    <label class="control-label"><?php echo _('Device Module Beta'); ?></label>
-                    <div class="controls" data-prop="deviceView">
-                        <div class="options btn-group" data-toggle="buttons-radio">
-                            <button autocomplete="off" class="btn" data-toggle="button" data-value="true"><?php echo _('On'); ?></button>
-                            <button autocomplete="off" class="btn active" data-toggle="button" data-value="false"><?php echo _('Off'); ?></button>
-                        </div>
-                    </div>
-                </div>
-
-            </form>
-        </div>
-        -->
         <?php
         global $mysqli,$redis;
         

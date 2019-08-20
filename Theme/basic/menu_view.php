@@ -91,8 +91,8 @@ if($isBookmarked){
 }
 
 if ($session['write']) {
-    echo makeListLink($removeBookmark);
-    echo makeListLink($addBookmark);
+    //echo makeListLink($removeBookmark);
+    //echo makeListLink($addBookmark);
 }
 
 if ($session['read']) {
