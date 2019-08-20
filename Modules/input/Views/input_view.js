@@ -1,166 +1,63 @@
-<?php
-    global $path;
-?>
-
-<script src="<?php echo $path; ?>Modules/device/Views/device.js"></script>
-<script src="<?php echo $path; ?>Modules/input/Views/input.js"></script>
-<script src="<?php echo $path; ?>Modules/feed/feed.js"></script>
-<script src="<?php echo $path; ?>Lib/responsive-linked-tables.js"></script>
-
-<style>
-
-.container-fluid { padding: 0px 10px 0px 10px; }
-
-#table {
-    margin-top:3rem
+/**
+ * uses moment.js to format to local time 
+ * @param int time unix epoc time
+ * @param string format moment.js date formatting options
+ * @see date format options - https://momentjs.com/docs/#/displaying/
+ */
+function format_time(time,format){
+    if(!Number.isInteger(time)) return time;
+    format = format || 'YYYY-MM-DD';
+    formatted_date = moment.unix(time).utc().format(format);
+    return formatted_date;
 }
-#footer {
-    margin-left: 0px;
-    margin-right: 0px;
-}
-
-.navbar-fixed-top {
-    margin-left: 0px;
-    margin-right: 0px;
+/**
+ * uses moment.js to display relative time from input time 
+ * @param int time unix epoc time
+ * @see docs - https://momentjs.com/docs/#/displaying/fromnow
+ */
+function time_since(time){
+    if(!Number.isInteger(time)) return time;
+    formatted_date = moment.unix(time).utc().fromNow();
+    return formatted_date;
 }
 
-input[type="checkbox"] { margin:0px; }
-.controls { margin-bottom:10px; }
-#inputs-to-delete { font-style:italic; }
-
-#auth-check {
-    padding:10px;
-    background-color:#dc9696;
-    margin-top:50px;
-    margin-bottom:10px;
-    font-weight:bold;
-    border: 1px solid #de6464;
-    color:#fff;
+/**
+ * wrapper for gettext like string replace function
+ */
+function _(str) {
+    return translate(str);
 }
-
-.auth-check-btn {
-    float:right;
-    margin-top:-2px;
-}
-
-#noprocesses .alert{margin:0;border-bottom-color:#fcf8e3;border-radius: 4px 4px 0 0;padding-right:14px}
-
-@media (min-width: 768px) {
-    .container-fluid { padding: 0px 20px 0px 20px; }
-    .modal-wide{
-        width:650px;
-        margin-left:-325px
+/**
+ * emulate the php gettext function for replacing php strings in js
+ */
+function translate(property) {
+    _strings = typeof translations === 'undefined' ? getTranslations() : translations;
+    if (_strings.hasOwnProperty(property)) {
+        return _strings[property];
+    } else {
+        return property;
     }
 }
-
-@media (max-width: 768px) {
-    body {padding:0};
-}
-
-.node .node-info{
-    border-bottom: 1px solid white;
-}
-.node .node-info,
-.node .node-input {
-    position: relative;
-}
-.node .node-info::after,
-.node .node-input::after {
-    content: '';
-    width: .4em;
-    height: 100%;
-    display: block;
-    position: absolute;
-    top: 0;
-    right: 0;
-    background: rgba(0,0,0,.1);
-}
-.buttons{ 
-    padding-right: .4em;
-}
-.status-success.node-info::after,
-.status-success.node-input::after{
-    background: #28A745!important;
-}
-.status-danger.node-info::after,
-.status-danger.node-input::after{
-    background: #DC3545!important;
-}
-.status-warning.node-info::after,
-.status-warning.node-input::after{
-    background: #FFC107!important;
-}
-
-.status-success.node-info .last-update,
-.status-success.node-input .last-update{
-    color: #28A745!important;
-}
-.status-danger.node-info .last-update,
-.status-danger.node-input .last-update{
-    color: #DC3545!important;
-}
-.status-warning.node-info .last-update,
-.status-warning.node-input .last-update{
-    color: #C70!important;
-}
-
-</style>
-
-<div>
-    <div id="input-header">
-        <span id="api-help" style="float:right"><a href="api"><?php echo _('Input API Help'); ?></a></span>
-        <h2><?php echo _('Inputs'); ?></h2>
-    </div>
-    
-    <div id="feedlist-controls" class="controls" data-spy="affix" data-offset-top="100">
-        <button id="expand-collapse-all" class="btn" title="<?php echo _('Collapse') ?>" data-alt-title="<?php echo _('Expand') ?>"><i class="icon icon-resize-small"></i></button>
-        <button id="select-all" class="btn" title="<?php echo _('Select all') ?>" data-alt-title="<?php echo _('Unselect all') ?>"><i class="icon icon-check"></i></button>
-        <button class="btn input-delete hide" title="Delete"><i class="icon-trash" ></i></button>
-        <a href="#inputEditModal" class="btn input-edit hide" title="Edit" data-toggle="modal"><i class="icon-pencil" ></i></a>
-    </div>
-    
-    <div id="auth-check" class="hide">
-        <i class="icon-exclamation-sign icon-white"></i> Device on ip address: <span id="auth-check-ip"></span> would like to connect 
-        <button class="btn btn-small auth-check-btn auth-check-allow">Allow</button>
-    </div>
-    
-    <div id="noprocesses"></div>
-    <div id="table" class="input-list"></div>
-    
-    <div id="output"></div>
-
-    <div id="input-none" class="alert alert-block hide">
-        <h4 class="alert-heading"><?php echo _('No inputs created'); ?></h4>
-        <p><?php echo _('Inputs are the main entry point for your monitoring device. Configure your device to post values here, you may want to follow the <a href="api">Input API helper</a> as a guide for generating your request.'); ?></p>
-    </div>
-    
-    <div id="input-footer" class="hide">
-        <button id="device-new" class="btn btn-small" >&nbsp;<i class="icon-plus-sign" ></i>&nbsp;<?php echo _('New device'); ?></button>
-    </div>
-    <div id="input-loader" class="ajax-loader"></div>
-</div>
-
-<?php require "Modules/device/Views/device_dialog.php"; ?>
-<?php require "Modules/input/Views/input_dialog.php"; ?>
-<?php require "Modules/process/Views/process_ui.php"; ?>
-
-<script>
-
-var path = "<?php echo $path; ?>";
 
 var devices = {};
 var inputs = {};
 var nodes = {};
 var local_cache_key = 'input_nodes_display';
 var nodes_display = docCookies.hasItem(local_cache_key) ? JSON.parse(docCookies.getItem(local_cache_key)) : {};
+// clear cookie value if not in correct format
+if (Array.isArray(nodes_display)) nodes_display = {};
 var selected_inputs = {};
 var selected_device = false;
 
-var device_templates = {};
-$.ajax({ url: path+"device/template/listshort.json", dataType: 'json', async: true, success: function(data) { 
-    device_templates = data; 
-    update();
-}});
+if (device_module) {
+    var device_templates = {};
+    $.ajax({ url: path+"device/template/listshort.json", dataType: 'json', async: true, success: function(data) { 
+        device_templates = data; 
+        update();
+    }});
+} else {
+    setTimeout(update,100);
+}
 
 var updater;
 function updaterStart(func, interval){
@@ -176,55 +73,82 @@ updaterStart(update, 5000);
 var firstLoad = true;
 function update(){
 
+    devices = {};
     // Join and include device data
-    $.ajax({ url: path+"device/list.json", dataType: 'json', async: true, success: function(data) {
+    if (device_module) {
+        $.ajax({ url: path+"device/list.json", dataType: 'json', async: true, success: function(result) {
+            // Associative array of devices by nodeid
+            for (var z in result) {
+                devices[result[z].nodeid] = result[z]
+                devices[result[z].nodeid].inputs = []
+            }
+            update_inputs();
+        }});
+    } else {
+        update_inputs();
+    }
+}
+
+function update_inputs() {
+    var requestTime = (new Date()).getTime();
+    $.ajax({ url: path+"input/list.json", dataType: 'json', async: true, success: function(data, textStatus, xhr) {
+        table.timeServerLocalOffset = requestTime-(new Date(xhr.getResponseHeader('Date'))).getTime(); // Offset in ms from local to server time
+          
+        // Associative array of inputs by id
+        inputs = {};
+        for (var z in data) inputs[data[z].id] = data[z];
         
-        // Associative array of devices by nodeid
-        devices = {};
-        for (var z in data) devices[data[z].nodeid] = data[z];
-        
-        var requestTime = (new Date()).getTime();
-        $.ajax({ url: path+"input/list.json", dataType: 'json', async: true, success: function(data, textStatus, xhr) {
-            table.timeServerLocalOffset = requestTime-(new Date(xhr.getResponseHeader('Date'))).getTime(); // Offset in ms from local to server time
-              
-            // Associative array of inputs by id
-            inputs = {};
-            for (var z in data) inputs[data[z].id] = data[z];
+        // Assign inputs to devices
+        for (var z in inputs) {
+            let nodeid = inputs[z].nodeid;
             
-            // Assign inputs to devices
-            for (var z in inputs) {
-                // Device does not exist which means this is likely a new system or that the device was deleted
-                // There needs to be a corresponding device for every node and so the system needs to recreate the device here
-                if (devices[inputs[z].nodeid]==undefined) {
-                    devices[inputs[z].nodeid] = {description:""};
+            // Device does not exist which means this is likely a new system or that the device was deleted
+            // There needs to be a corresponding device for every node and so the system needs to recreate the device here
+            if (devices[nodeid]==undefined) {
+            
+                devices[nodeid] = {
+                    id: false,
+                    userid: inputs[z].userid,
+                    nodeid: nodeid,
+                    name: nodeid,
+                    description: "",
+                    type: "",
+                    devicekey: false,
+                    time:false,
+                    inputs: []
+                }
+                
+                if (device_module) {
                     // Device creation
-                    $.ajax({ url: path+"device/create.json?nodeid="+inputs[z].nodeid, dataType: 'json', async: false, success: function(deviceid) {
-                        if (!deviceid) {
-                            alert("There was an error creating device: nodeid="+inputs[z].nodeid+" deviceid="+deviceid); 
+                    $.ajax({ url: path+"device/create.json?nodeid="+nodeid, dataType: 'json', async: false, success: function(result) {
+                        if (result.success!=undefined) {
+                            alert("There was an error creating device: nodeid="+nodeid+" message="+result.message); 
                         } else {
-                            $.ajax({ url: path+"device/get.json?id="+deviceid, dataType: 'json', async: false, success: function(result) {
-                                devices[inputs[z].nodeid] = result;
-                            }});
+                            devices[nodeid].id = result;
+                            devices[nodeid].devicekey = "";
                         }
                     }});
                 }
-                if (nodes_display[inputs[z].nodeid]==undefined) nodes_display[inputs[z].nodeid] = true;
-                // expand if only one feed available
-                if (devices[inputs[z].nodeid].inputs==undefined) devices[inputs[z].nodeid].inputs = [];
-                // expand if only one feed available or state locally cached in cookie
-                if (firstLoad && Object.keys(devices).length > 1 && Object.keys(nodes_display).length == 0) {
-                    nodes_display[inputs[z].nodeid] = false;
-                }
-                devices[inputs[z].nodeid].inputs.push(inputs[z]);
             }
+            if (typeof nodes_display[nodeid] === 'undefined') {
+                nodes_display[nodeid] = true;
+            }
+            // expand if only one feed available or state locally cached in cookie
+            if (firstLoad && Object.keys(devices).length > 1 && Object.keys(nodes_display).length === 0) {
+                delete nodes_display[nodeid];
+            }
+            devices[nodeid].inputs.push(inputs[z]);
             // cache state in cookie
-            if(firstLoad) docCookies.setItem(local_cache_key, JSON.stringify(nodes_display));
-            firstLoad = false;
-            draw_devices();
-            noProcessNotification(devices);
-        }});
+            if(firstLoad) {
+                $('#input-loader').hide();
+                firstLoad = false;
+            }
+        }
+        draw_devices();
+        noProcessNotification(devices);
     }});
 }
+
 /** show a message to the user if no processes have been added */
 function noProcessNotification(devices){
     let processList = [],  message = '';
@@ -237,7 +161,7 @@ function noProcessNotification(devices){
         }
     }
     if(processList.length<1 && Object.keys(devices).length > 0){
-        message = '<div class="alert pull-right">%s <i class="icon-arrow-down" style="opacity: .7;"></i></div>'.replace('%s',"<?php echo _("Configure your device here") ?>")
+        message = '<div class="alert pull-right">%s <i class="icon-arrow-down" style="opacity: .7;"></i></div>'.replace('%s',_("Configure your device here"))
     }
     $('#noprocesses').html(message);
 }
@@ -253,6 +177,11 @@ function draw_devices()
     isCollapsed = !(Object.keys(devices).length > 1);
 
     var latest_update = [];
+    
+    var max_name_length = 0;
+    var max_description_length = 0;
+    var max_time_length = 0;
+    var max_value_length = 0;
 
     for (var node in devices) {
         var device = devices[node]
@@ -267,16 +196,17 @@ function draw_devices()
         out += "     <div class='buttons pull-right'>"
         
         var control_node = "hidden";
-        if (device_templates[device.type]!=undefined && device_templates[device.type].control!=undefined && device_templates[device.type].control) control_node = "";
+        // if (device_templates[device.type]!=undefined && device_templates[device.type].control!=undefined && device_templates[device.type].control) control_node = "";
         
         out += "        <div class='device-schedule text-center "+control_node+"' data-col='F' data-col-width='50'><i class='icon-time'></i></div>";
-        out += "        <div class='device-last-updated text-center' data-col='D'></div>"; 
+        out += "        <div class='device-last-updated text-center' data-col='E'></div>"; 
         
         var devicekey = device.devicekey;
-        if (device.devicekey=="") devicekey = "No device key created"; 
+        if (device.devicekey===false) devicekey = "Device module required for this feature";
+        if (device.devicekey==="") devicekey = "No device key created"; 
         
-        out += "        <a href='#' class='device-key text-center' data-col='E' data-toggle='tooltip' data-tooltip-title='<?php echo _("Show node key") ?>' data-device-key='"+devicekey+"' data-col-width='50'><i class='icon-lock'></i></a>"; 
-        out += "        <div class='device-configure text-center' data-col='C' data-col-width='50'><i class='icon-cog' title='<?php echo _('Configure device using device template')?>'></i></div>";
+        out += "        <a href='#' class='device-key text-center' data-col='D' data-toggle='tooltip' data-tooltip-title='"+_("Show node key")+"' data-device-key='"+devicekey+"' data-col-width='50'><i class='icon-lock'></i></a>"; 
+        out += "        <div class='device-configure text-center' data-col='C' data-col-width='50'><i class='icon-cog' title='"+_('Configure device using device template')+"'></i></div>";
         out += "     </div>";
         out += "  </div>";
 
@@ -284,10 +214,28 @@ function draw_devices()
         for (var i in device.inputs) {
             var input = device.inputs[i];
             var selected = selected_inputs[input.id] ? 'checked': '';
-            var processlistHtml = processlist_ui ? processlist_ui.drawpreview(input.processList) : '';
+            var processlistHtml = processlist_ui ? processlist_ui.drawpreview(input.processList, input) : '';
             latest_update[node] = latest_update > input.time ? latest_update : input.time;
 
-            out += "<div class='node-input " + nodeItemIntervalClass(input) + "' id="+input.id+">";
+            var fv = list_format_updated_obj(input.time);
+
+            var title_lines = [ 
+                node.toUpperCase() + ': ' + input.name,
+                '-----------------------',
+                _('ID')+': '+ input.id
+            ];
+            if(input.value) {
+                title_lines.push(_('Value')+': ' + input.value);
+            }
+            if(input.time) {
+                title_lines.push(_('Updated')+": "+ fv.value);
+                title_lines.push(_('Time')+': '+ input.time);
+                // title_lines.push(format_time(input.time,'LL LTS')+" UTC");
+            }
+
+            row_title = title_lines.join("\n");
+
+            out += "<div class='node-input " + nodeItemIntervalClass(input) + "' id="+input.id+" title='"+row_title+"'>";
             out += "  <div class='select text-center' data-col='B'>";
             out += "   <input class='input-select' type='checkbox' id='"+input.id+"' "+selected+" />";
             out += "  </div>";
@@ -296,15 +244,26 @@ function draw_devices()
             out += "  <div class='processlist' data-col='H'><div class='label-container line-height-normal'>"+processlistHtml+"</div></div>";
             out += "  <div class='buttons pull-right'>";
             out += "    <div class='schedule text-center hidden' data-col='F'></div>";
-            out += "    <div class='time text-center' data-col='D'>"+list_format_updated(input.time)+"</div>";
-            out += "    <div class='value text-center' data-col='E'>"+list_format_value(input.value)+"</div>";
-            out += "    <div class='configure text-center cursor-pointer' data-col='C' id='"+input.id+"'><i class='icon-wrench' title='<?php echo _('Configure Input processing')?>'></i></div>";
+            
+            out += "    <div class='time text-center' data-col='E'><span class='last-update' style='color:" + fv.color + ";'>" + fv.value + "</span></div>";
+            var value_str = list_format_value(input.value);
+            out += "    <div class='value text-center' data-col='D'>"+value_str+"</div>";
+            out += "    <div class='configure text-center cursor-pointer' data-col='C' id='"+input.id+"'><i class='icon-wrench' title='"+_('Configure Input processing')+"'></i></div>";
             out += "  </div>";
             out += "</div>";
+            
+            if (input.name.length>max_name_length) max_name_length = input.name.length;
+            if (input.description.length>max_description_length) max_description_length = input.description.length;
+            if (String(fv.value).length>max_time_length) max_time_length = String(fv.value).length;
+            if (String(value_str).length>max_value_length) max_value_length = String(value_str).length;            
         }
         
         out += "</div>";
         out += "</div>";
+        
+        // Node name and description length
+        if ((""+node).length>max_name_length) max_name_length = (""+node).length;
+        if (device.description.length>max_description_length) max_description_length = device.description.length;        
     }
     $("#table").html(out);
 
@@ -329,7 +288,7 @@ function draw_devices()
             $btn.attr('title', title);
         }
     )
-    $('#input-loader').hide();
+    
     if (out=="") {
         $("#input-header").hide();
         $("#input-footer").show();
@@ -346,7 +305,17 @@ function draw_devices()
         $("#table .collapse").collapse({toggle: false});
         setExpandButtonState($('#table .collapsed').length == 0);
     }
-    autowidth($('#table')); // set each column group to the same width
+    
+    // autowidth($('#table')); // set each column group to the same width
+    
+    var charsize = 8;
+    var padding = 20;
+    $('[data-col="A"]').width(max_name_length*charsize+padding);          // name
+    $('[data-col="G"]').width(max_description_length*10+padding);         // description
+    $('[data-col="E"]').width(max_time_length*charsize+padding);          // time
+    $('[data-col="D"]').width(max_value_length*charsize+padding);         // value
+
+    onResize();
 }
 // ---------------------------------------------------------------------------------------------
 
@@ -418,9 +387,13 @@ $("#table").on("click",".device-configure",function(e) {
     // Get device of clicked node
     node = $(this).parents('.node-info').first().data("node");
     var device = devices[node];
-    device_dialog.loadConfig(device_templates, device);
+    
+    if (device_module) {
+        device_dialog.loadConfig(device_templates, device);
+    } else {
+        alert("Please install the device module to enable this feature");
+    }
 });
-
 
 // selection buttons ---
 
@@ -572,7 +545,7 @@ function submitSingleInputForm(e){
     $loader.show();
     fd = getInputFormData(form);
 
-    showStatus.info('<?php echo _('Saving') ?>...',fd.inputid);
+    showStatus.info(_('Saving')+'...',fd.inputid);
 
     // if current form data differs from original data saved in data-originalData
     if(fd.fields && fd.originalData != fd.dataString){
@@ -603,7 +576,7 @@ function submitAllInputForms(e){
         if (!this.checkValidity()) return false;
         $loader.show();
         let fd = getInputFormData(this);
-        showStatus.info('<?php echo _('Saving') ?>...',fd.inputid);
+        showStatus.info(_('Saving')+'...',fd.inputid);
         if(fd.fields && fd.originalData != fd.dataString){
             $.when(input.set(fd.inputid, fd.fields, true))
                 .then(function(response) {
@@ -658,31 +631,6 @@ $("#table").on('click', '.configure', function() {
 $("#save-processlist").click(function (){
     var result = input.set_process(processlist_ui.contextid,processlist_ui.encode(processlist_ui.contextprocesslist));
     if (result.success) { processlist_ui.saved(table); } else { alert('ERROR: Could not save processlist. '+result.message); }
-});
-
-// -------------------------------------------------------------------------------------------------------
-// Device authentication transfer
-// -------------------------------------------------------------------------------------------------------
-auth_check();
-//setInterval(auth_check,5000);
-function auth_check(){
-    $.ajax({ url: path+"device/auth/check.json", dataType: 'json', async: true, success: function(data) {
-        if (typeof data.ip !== "undefined") {
-            $("#auth-check-ip").html(data.ip);
-            $("#auth-check").show();
-            $("#table").css("margin-top","0");
-        } else {
-            $("#table").css("margin-top","3rem");
-            $("#auth-check").hide();
-        }
-    }});
-}
-
-$(".auth-check-allow").click(function(){
-    var ip = $("#auth-check-ip").html();
-    $.ajax({ url: path+"device/auth/allow.json?ip="+ip, dataType: 'json', async: true, success: function(data) {
-        $("#auth-check").hide();
-    }});
 });
 
 // -------------------------------------------------------------------------------------------------------
@@ -762,4 +710,14 @@ function nodeIntervalClass (node) {
     return missedIntervalClassName(missed);
 }
 
-</script>
+$(function(){
+    $(document).on('hide show', '#table', function(event){
+        // cache state in cookie
+        if(!firstLoad) {
+            nodes_display[event.target.dataset.node] = event.type === 'show';
+            docCookies.setItem(local_cache_key, JSON.stringify(nodes_display));
+            firstLoad = false;
+        }
+        console.log(event.target.dataset.node,nodes_display)
+    })
+})
