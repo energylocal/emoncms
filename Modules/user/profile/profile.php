@@ -151,6 +151,7 @@ function languagecode_to_name($langs) {
         <div id="preferences-section_update_warning" class="well hidden">
             <h4><?php echo _('Please update your database'); ?></h4>
         </div>
+        <?php /*
         <div id="preferences-section" class="well hidden">
             <h4><?php echo _('Beta Features'); ?>:
                 <small class="text-info" id="preferences-errors"
@@ -173,9 +174,7 @@ function languagecode_to_name($langs) {
 
             </form>
         </div>
-        --> 
-
-        
+        -->
         <?php
         global $mysqli,$redis;
         
@@ -192,9 +191,7 @@ function languagecode_to_name($langs) {
             }
         }
         echo view("Modules/provision/view.php",array("wanip"=>$wanip,"devices"=>$devices));
-        ?> 
-        
-        
+        ?>
     </div>
 </div>
 
