@@ -52,7 +52,11 @@ function drawItem($item) {
                 $out .= '</ul></li>';
             }
             else if (isset($item['path']) && isset($item['name'])) {
-                if ($show) $out .= "<li class='" . (is_active($item) ? "active" : "") . (isset($item['class']) ? " ".$item['class'] : "") ."'><a href=\"".$path.$item['path']."\">" . drawNameIcon($item,false) . "</a></li>";
+                if (!isset($item['direct_path'])) {
+                    if ($show) $out .= "<li class='" . (is_active($item) ? "active" : "") . (isset($item['class']) ? " ".$item['class'] : "") ."'><a href=\"".$path.$item['path']."\">" . drawNameIcon($item,false) . "</a></li>";
+                } else {
+                    if ($show) $out .= "<li class='" . (is_active($item) ? "active" : "") . (isset($item['class']) ? " ".$item['class'] : "") ."'><a href=\"".$item['path']."\">" . drawNameIcon($item,false) . "</a></li>";            
+                }
             }
         }
     } else {

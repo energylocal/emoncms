@@ -174,6 +174,27 @@ function languagecode_to_name($langs) {
             </form>
         </div>
         --> 
+
+        
+        <?php
+        global $mysqli,$redis;
+        
+        $wanip = getenv("REMOTE_ADDR");
+        $userid = (int) $session["userid"];
+
+        $devices = array();
+        if ($result = $mysqli->query("SELECT `key` FROM provision WHERE `userid`='$userid'")) {
+            while ($row = $result->fetch_object()) {
+                $key = $row->key;
+                $device = json_decode($redis->get("provision:$key"));
+                $device->key = $key;
+                $devices[] = $device;
+            }
+        }
+        echo view("Modules/provision/view.php",array("wanip"=>$wanip,"devices"=>$devices));
+        ?> 
+        
+        
     </div>
 </div>
 

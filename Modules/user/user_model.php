@@ -424,14 +424,14 @@ class User
     // Authorization API. returns user write and read apikey on correct username + password
     // This is useful for using emoncms with 3rd party applications
 
-    public function get_apikeys_from_login($username, $password)
+    public function get_apikeys_from_login($username_or_email, $password)
     {
-        if (!$username || !$password) return array('success'=>false, 'message'=>_("Username or password empty"));
-        $username_out = preg_replace('/[^\p{N}\p{L}_\s-]/u','',$username);
-        if ($username_out!=$username) return array('success'=>false, 'message'=>_("Username must only contain a-z 0-9 dash and underscore"));
+        if (!$username_or_email || !$password) return array('success'=>false, 'message'=>_("Username or password empty"));
+        // $username_out = preg_replace('/[^\p{N}\p{L}_\s-]/u','',$username);
+        // if ($username_out!=$username) return array('success'=>false, 'message'=>_("Username must only contain a-z 0-9 dash and underscore"));
 
-        $stmt = $this->mysqli->prepare("SELECT id,password,salt,apikey_write,apikey_read FROM users WHERE username=?");
-        $stmt->bind_param("s",$username);
+        $stmt = $this->mysqli->prepare("SELECT id,password,salt,apikey_write,apikey_read FROM users WHERE username=? OR email=?");
+        $stmt->bind_param("ss",$username_or_email,$username_or_email);
         $stmt->execute();
         //$result = $stmt->get_result();
         //$userData = $result->fetch_object();
@@ -495,7 +495,10 @@ class User
 
     public function passwordreset($username,$emailto)
     {
-        $username_out = preg_replace('/[^\p{N}\p{L}_\s-]/u','',$username);
+    
+        // print $username;
+    
+        $username_out = preg_replace('/[^\p{N}\p{L}_\s-.]/u','',$username);
         if (!filter_var($emailto, FILTER_VALIDATE_EMAIL)) return array('success'=>false, 'message'=>_("Email address format error"));
 
         $stmt = $this->mysqli->prepare("SELECT id FROM users WHERE username=? AND email=?");
