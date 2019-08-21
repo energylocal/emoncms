@@ -19,7 +19,7 @@
     require "route.php";
     require "param.php";
     require "locale.php";
-    
+
     $emoncms_version = ($feed_settings['redisbuffer']['enabled'] ? "low-write " : "") . version();
 
     $path = get_application_path();
@@ -127,10 +127,10 @@
     }
     
     // 4) Language
-
     if (!isset($session['lang'])) $session['lang']='cy_GB';    
     if (isset($_GET['lang']) && $_GET['lang']=="en") $session['lang'] = "en_GB";
     if (isset($_GET['lang']) && $_GET['lang']=="cy") $session['lang'] = "cy_GB";
+    $_SESSION['lang'] = $session['lang'];
     set_emoncms_lang($session['lang']);
 
     // 5) Get route and load controller

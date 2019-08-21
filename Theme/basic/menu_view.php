@@ -70,6 +70,25 @@ endforeach; endif;
 
 <ul id="right-nav" class='nav d-flex align-items-stretch mr-0 pull-right'>
 
+<?php 
+
+$lang = "English";
+$lang_link = "en";
+
+if (isset($session['lang'])) { 
+   if ($session['lang']=="cy_GB") {
+       $lang = "English";
+       $lang_link = "en";
+   } else {
+       $lang = "Cymraeg";
+       $lang_link = "cy";
+   }
+
+}
+?>
+
+<li><a href="?lang=<?php echo $lang_link; ?>" style="font-size:18px; line-height:28px; padding-top:8px"><?php echo $lang; ?></a></li>
+
 <?php
 $isBookmarked = currentPageIsBookmarked();
 $addBookmark = array(

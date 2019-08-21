@@ -53,9 +53,6 @@ function user_controller()
         }
         
         if ($route->action == 'logout') {
-
-            //$user->logout(); 
-            //header('Location: '."/cydynni");
             // decode url parameters
             $next = $path;
             $message = filter_var(urldecode(get('msg')), FILTER_SANITIZE_STRING);
