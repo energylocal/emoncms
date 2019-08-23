@@ -56,6 +56,7 @@ class User
         //----------------------------------------------------
         // Check redis cache first
         //----------------------------------------------------
+        /*
         if($this->redis)
         {
             if ($this->redis->exists("writeapikey:$apikey_in")) {
@@ -77,7 +78,7 @@ class User
                 $session['username'] = "API"; // TBD
                 return $session;
             }
-        }
+        }*/
         
         //----------------------------------------------------
         // If not in redis check mysql

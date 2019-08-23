@@ -90,6 +90,13 @@ if (isset($session['lang'])) {
 <li><a href="?lang=<?php echo $lang_link; ?>" style="font-size:18px; line-height:28px; padding-top:8px"><?php echo $lang; ?></a></li>
 
 <?php
+
+// left aligned menu items
+if(!empty($menu['right'])): foreach ($menu['right'] as $item):
+    $item['class'] = 'menu-right';
+    echo makeListLink($item);
+endforeach; endif;
+
 $isBookmarked = currentPageIsBookmarked();
 $addBookmark = array(
     'icon'=>'star_border',
