@@ -9,6 +9,7 @@ var datetimepicker2;
 var datatype;
 
 function convertToPlotlist(multigraphFeedlist) {
+  if (multigraphFeedlist==undefined) return;
   if (!multigraphFeedlist[0]) return;
   var plotlist = [];
   var showtag = (multigraphFeedlist[0]["showtag"] != undefined ? multigraphFeedlist[0]["showtag"] : true);
@@ -293,8 +294,8 @@ function multigraphInit(element) {
   });
 
   vis_resize();
-  $(window).resize(vis_resize);
-  $('#sidebar').on('hidden.sidebar.collapse shown.sidebar.collapse',vis_resize);
+
+  $(document).on('window.resized hidden.sidebar.collapse shown.sidebar.collapse',vis_resize);
   
   function vis_resize() {
     var width = $("#graph_bound").width();
