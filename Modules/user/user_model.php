@@ -391,7 +391,7 @@ class User
         {
             //--------------------------------------------------------------------
             include "Modules/remoteaccess/remoteaccess_userlink.php";
-            $result = remoteaccess_userlink_existing($this->mysqli,$userData_id,$username,$password);
+            $result = remoteaccess_userlink_existing($this->mysqli,$userData_id);
             if (!isset($result["success"]) || !$result["success"]) return $result;
             //--------------------------------------------------------------------
             
