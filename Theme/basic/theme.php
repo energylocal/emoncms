@@ -13,7 +13,7 @@ global $settings;
 global $ltime,$path,$emoncms_version,$menu;
 load_language_files("Theme/locale", "theme_messages");
 
-$v = 10;
+$v = 12;
 
 if (!is_dir("Theme/".$settings["interface"]["theme"])) {
     $settings["interface"]["theme"] = "basic";
@@ -77,10 +77,10 @@ if (!in_array($settings["interface"]["themecolor"], ["blue", "sun", "standard"])
             <?php echo $content; ?>
         </main>
     </div><!-- eof #wrap -->
-    <div id="footer">
+    <!--<div id="footer">
         <?php echo _('Pweru gan '); ?><a href="http://openenergymonitor.org">OpenEnergyMonitor.org</a>
         <span> | <a href="https://github.com/emoncms/emoncms/releases"><?php echo $emoncms_version; ?></a></span>
-    </div>
+    </div>-->
 
     <script type="text/javascript" src="<?php echo $path; ?>Lib/bootstrap/js/bootstrap.js"></script>
 

@@ -34,6 +34,7 @@ $menu['user'][] = array(
     'id' => 'logout-link'
 );
 
+/*
 $menu['user'][] = array(
     'title' => _("Login"),
     // 'text' => _("Login"),
@@ -41,4 +42,4 @@ $menu['user'][] = array(
     'path' => '/',
     'public' => true,
     'public_only' => true
-);
+);*/
