@@ -150,7 +150,7 @@ function admin_controller()
             else if ($route->action == 'setuser' && $session['write'])
             {
                 $_SESSION['userid'] = intval(get('id'));
-                header("Location: ../user/view");
+                header("Location: ../graph");
                 // stop any other code from running once http header sent
                 exit();
             }

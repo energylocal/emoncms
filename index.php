@@ -218,8 +218,31 @@
 
     if ($route->controller == 'input' && $route->action == 'bulk') $route->format = 'json';
     else if ($route->controller == 'input' && $route->action == 'post') $route->format = 'json';
+    
+    // -----------------------------------------------------------------------------------------
+    
+    if ($route->controller == 'cydynni') $route->controller = 'club';
 
-    if ($route->controller == 'bethesda') $route->controller = 'cydynni';
+    // default club
+    $club = "bethesda";
+    
+    // load club from controller
+    if (in_array($route->controller,$available_clubs)) {
+        $club = $route->controller;
+        $route->controller = 'club';
+    }
+    
+    // load club from session
+    if ($route->controller=="club" && $session["read"]) {
+        $result = $mysqli->query("SELECT clubs_id FROM cydynni WHERE `userid`='".$session['userid']."'");
+        if ($row = $result->fetch_object()) {
+            if ($row->clubs_id==1) $club = "bethesda";
+            if ($row->clubs_id==2) $club = "repower";
+        }
+        $result = false;
+    }
+
+    // -----------------------------------------------------------------------------------------
 
     // 6) Load the main page controller
     $output = controller($route->controller);
@@ -339,8 +362,8 @@
             $menu = load_menu();
             
             // EMONCMS MENU
-            if($session['write']){
-                /*$menu['tabs'][] = array(
+            if($session['admin']){
+                $menu['tabs'][] = array(
                     'icon'=>'menu',
                     'title'=> _("Emoncms"),
                     'text'=> _("Setup"),
@@ -349,7 +372,7 @@
                     'data'=> array(
                         'sidebar' => '#sidebar_emoncms'
                     )
-                );*/
+                );
             }
 
             include_once ("Lib/misc/nav_functions.php");

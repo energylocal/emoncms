@@ -104,7 +104,7 @@ function feed_controller()
                     if ($feed->exist($feedid)) { // if the feed exists
                         $f = $feed->get($feedid);
                         // if public or belongs to user
-                        if ($f['public'] || ($session['userid']>0 && $f['userid']==$session['userid'] && $session['read']))
+                        if ($session["admin"] || $f['public'] || ($session['userid']>0 && $f['userid']==$session['userid'] && $session['read']))
                         {
                         
                             $results[$key] = array('feedid'=>$feedid);
@@ -166,7 +166,7 @@ function feed_controller()
             {
                 $f = $feed->get($feedid);
                 // if public or belongs to user
-                if ($f['public'] || ($session['userid']>0 && $f['userid']==$session['userid'] && $session['read']))
+                if ($session["admin"] || $f['public'] || ($session['userid']>0 && $f['userid']==$session['userid'] && $session['read']))
                 {
                     if ($route->action == "timevalue") return $feed->get_timevalue($feedid);
                     else if ($route->action == "value") return $feed->get_value($feedid); // null is a valid response
