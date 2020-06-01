@@ -184,6 +184,7 @@ $settings = array(
     'port'=>isset($smtp_email_settings["port"])?$smtp_email_settings["port"]:"465",  
     'from_email' =>isset($smtp_email_settings["from_email"])?$smtp_email_settings["from_email"]:'noreply@emoncms.org',
     'from_name' =>isset($smtp_email_settings["from_name"])?$smtp_email_settings["from_name"]:'EmonCMS',
+
     // comment lines below that dont apply
     // ssl, tls
     'encryption'=>isset($smtp_email_settings["encryption"])?$smtp_email_settings["encryption"]:"ssl", 

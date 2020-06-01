@@ -20,7 +20,7 @@ class Email {
         }
         if ($this->have_swift){
             $this->message = Swift_Message::newInstance();
-
+            
             $from = array();
             $from[$settings['smtp']['from_email']] = $settings['smtp']['from_name'];
             $this->message->setFrom($from);
