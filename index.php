@@ -236,8 +236,10 @@
     if ($route->controller=="club" && $session["read"]) {
         $result = $mysqli->query("SELECT clubs_id FROM cydynni WHERE `userid`='".$session['userid']."'");
         if ($row = $result->fetch_object()) {
-            if ($row->clubs_id==1) $club = "bethesda";
-            if ($row->clubs_id==2) $club = "repower";
+            $club_id = $row->clubs_id-1;
+            if (isset($available_clubs[$club_id])) {
+                $club = $available_clubs[$club_id];
+            }
         }
         $result = false;
     }

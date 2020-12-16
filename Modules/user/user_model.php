@@ -247,11 +247,11 @@ class User
         $apikey_read = md5(uniqid(mt_rand(), true));
         
         // MQTT hash
-        include "Lib/mqtt_hash.php";
-        $mqtthash = create_hash($password);
+        // include "Lib/mqtt_hash.php";
+        // $mqtthash = create_hash($password);
 
-        $stmt = $this->mysqli->prepare("INSERT INTO users ( username, password, email, salt ,apikey_read, apikey_write, mqtthash, admin) VALUES (?,?,?,?,?,?,?,0)");
-        $stmt->bind_param("sssssss", $username, $hash, $email, $salt, $apikey_read, $apikey_write, $mqtthash);
+        $stmt = $this->mysqli->prepare("INSERT INTO users ( username, password, email, salt ,apikey_read, apikey_write, admin) VALUES (?,?,?,?,?,?,0)");
+        $stmt->bind_param("ssssss", $username, $hash, $email, $salt, $apikey_read, $apikey_write);
         if (!$stmt->execute()) {
             $error = $this->mysqli->error;
             $stmt->close();
@@ -264,12 +264,12 @@ class User
         $stmt->close();
         
         // Set MQTT ACL's
-        $topic = "user/$userid/#";
-        $stmt = $this->mysqli->prepare("INSERT INTO mqtt_acls (username,topic,rw) VALUES (?,?,7)"); // See acl rw levels: https://github.com/jpmens/mosquitto-auth-plug/issues/356
-        $stmt->bind_param("ss", $username, $topic);
-        if (!$stmt->execute()) {
-            return array("success"=>false, "Error setting MQTT ACL entry");
-        }
+        // $topic = "user/$userid/#";
+        // $stmt = $this->mysqli->prepare("INSERT INTO mqtt_acls (username,topic,rw) VALUES (?,?,7)"); // See acl rw levels: https://github.com/jpmens/mosquitto-auth-plug/issues/356
+        // $stmt->bind_param("ss", $username, $topic);
+        // if (!$stmt->execute()) {
+        //    return array("success"=>false, "Error setting MQTT ACL entry");
+        // }
         
         // Email verification
         if ($this->email_verification) {
@@ -497,11 +497,11 @@ class User
             $hash = hash('sha256', $salt . $hash);
             
             // MQTT hash
-            include "Lib/mqtt_hash.php";
-            $mqtthash = create_hash($new);
+            // include "Lib/mqtt_hash.php";
+            // $mqtthash = create_hash($new);
 
-            $stmt = $this->mysqli->prepare("UPDATE users SET password = ?, salt = ?, mqtthash = ? WHERE id = ?");
-            $stmt->bind_param("sssi", $hash, $salt, $mqtthash, $userid);
+            $stmt = $this->mysqli->prepare("UPDATE users SET password = ?, salt = ? WHERE id = ?");
+            $stmt->bind_param("ssi", $hash, $salt, $userid);
             $stmt->execute();
             $stmt->close();
             
