@@ -3,7 +3,7 @@
 // Example emoncms settings.php file
 //
 // default-settings.php contains the default settings.
-// 
+//
 // Settings entered here override the default settings.
 // Enter only the settings you wish to customise here.
 //
@@ -45,7 +45,7 @@ $settings = array(
     // If using emoncms in low-write mode, ensure that PHPFIWA is disabled
     // MYSQL:0, MYSQLMEMORY:8, PHPTIMESERIES:2, PHPFINA:5, PHPFIWA:6, CASSANDRA:10
     // 5:phpfina and 2:phptimeseries are the recommended emoncms feed engines
-    'engines_hidden'=>array(0,6,10),
+    'engines_hidden'=>array(0,6,8,10),
     // Buffer data to be written to
     'redisbuffer'   => array(
         'enabled' => false,
@@ -69,12 +69,12 @@ $settings = array(
     // 'default_emailto' => 'root@localhost',
     // 'host'=>"smtp.gmail.com",
     // 25, 465, 587
-    // 'port'=>"465",  
+    // 'port'=>"465",
     // 'from_email' => 'noreply@emoncms.org',
     // 'from_name' => 'EmonCMS',
     // comment lines below that dont apply
     // ssl, tls
-    // 'encryption'=>"ssl", 
+    // 'encryption'=>"ssl",
     // 'username'=>"yourusername@gmail.com",
     // 'password'=>"yourpassword"
 ),
