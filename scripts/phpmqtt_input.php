@@ -1,5 +1,11 @@
 <?php
 
+    // TBD: support user target in message schema
+    $mqttsettings = array(
+        'userid' => 1
+    );
+
+
     /*
     
     **MQTT input interface script**
@@ -52,29 +58,24 @@
         die;
     }
     
-    $retry = 0;
-    $mysqli_connected = false;
-    while(!$mysqli_connected) {
-        // Try to connect to mysql
-        $mysqli = @new mysqli(
-            $settings["sql"]["server"],
-            $settings["sql"]["username"],
-            $settings["sql"]["password"],
-            $settings["sql"]["database"],
-            $settings["sql"]["port"]
-        );
-        
-        if ($mysqli->connect_error) { 
-            $log->error("Cannot connect to MYSQL database:". $mysqli->connect_error);  
-            $retry ++;
-            if ($retry>3) die;
-            sleep(5.0);
-        } else {
-            $mysqli_connected = true;
-            break;
-        }
-    }
+    $mysqli = @new mysqli(
+        $settings["sql"]["server"],
+        $settings["sql"]["username"],
+        $settings["sql"]["password"],
+        $settings["sql"]["database"],
+        $settings["sql"]["port"]
+    );
     
+    if ( $mysqli->connect_error ) {
+        echo "Can't connect to database, please verify credentials/configuration in settings.php<br />";
+        if ( $display_errors ) {
+            echo "Error message: <b>" . $mysqli->connect_error . "</b>";
+        }
+        die();
+    }
+
+    if ($mysqli->connect_error) { $log->error("Cannot connect to MYSQL database:". $mysqli->connect_error);  die('Check log\n'); }
+
     // Enable for testing
     // $mysqli->query("SET interactive_timeout=60;");
     // $mysqli->query("SET wait_timeout=60;");
@@ -104,7 +105,7 @@
     $input = new Input($mysqli,$redis,$feed);
 
     require_once "Modules/process/process_model.php";
-    $process = new Process($mysqli,$input,$feed,'UTC');
+    $process = new Process($mysqli,$input,$feed,$user->get_timezone($mqttsettings['userid']));
 
     $device = false;
     if (file_exists("Modules/device/device_model.php")) {
@@ -131,7 +132,7 @@
     $mqtt_client->onMessage('message');
 
     // Option 1: extend on this:
-    while(true){
+    while(true) {
         try {
             $mqtt_client->loop();
         } catch (Exception $e) {
@@ -145,6 +146,13 @@
                 // SUBSCRIBE
                 $log->warn("Not connected, retrying connection");
                 $mqtt_client->setCredentials($settings['mqtt']['user'],$settings['mqtt']['password']);
+                if(isset($settings['mqtt']['capath']) && $settings['mqtt']['capath'] !== null) {
+                    $log->warn("mqtt: using ssl");
+                    $mqtt_client->setTlsCertificates($settings['mqtt']['capath'],
+                                                     $settings['mqtt']['certpath'],
+                                                     $settings['mqtt']['keypath'],
+                                                     $settings['mqtt']['keypw']);
+                }
                 $mqtt_client->connect($settings['mqtt']['host'], $settings['mqtt']['port'], 5);
                 // moved subscribe to onConnect callback
 
@@ -282,11 +290,15 @@
             $log->info($topic." ".$value);
             $count ++;
             
+            #Emoncms user ID TBD: incorporate on message via authentication mechanism
+            global $mqttsettings;
+            $userid = $mqttsettings['userid'];
+            
             $inputs = array();
             
             $route = explode("/",$topic);
             $basetopic = explode("/",$settings['mqtt']['basetopic']);
-            
+
             /*Iterate over base topic to determine correct sub-topic*/
             $st = -1;
             foreach ($basetopic as $subtopic) {
@@ -300,11 +312,9 @@
                     $log->error("MQTT base topic is longer than input topics! Will not produce any inputs! Base topic is ".$mqtt_server['basetopic'].". Topic is ".$topic.".");
                 }
             }
-
             if ($st >= 0) {
-                if (isset($route[$st+1]) && isset($route[$st+2]))
+                if (isset($route[$st+1])) {
                     $nodeid = $route[$st+1];
-                    $nodeid = $route[$st+2];
                     // Filter nodeid, pre input create, to avoid duplicate inputs
                     $nodeid = preg_replace('/[^\p{N}\p{L}_\s\-.]/u','',$nodeid);
                     
@@ -314,8 +324,8 @@
                         foreach ($jsondata as $key=>$value) {
                             $inputs[] = array("userid"=>$userid, "time"=>$time, "nodeid"=>$nodeid, "name"=>$key, "value"=>$value);
                         }
-                    } else if (isset($route[$st+3])) {
-                        $inputs[] = array("userid"=>$userid, "time"=>$time, "nodeid"=>$nodeid, "name"=>$route[$st+3], "value"=>$value);
+                    } else if (isset($route[$st+2])) {
+                        $inputs[] = array("userid"=>$userid, "time"=>$time, "nodeid"=>$nodeid, "name"=>$route[$st+2], "value"=>$value);
                     }
                     else
                     {
@@ -343,8 +353,7 @@
                 $nodeid = $i['nodeid'];
                 $name = $i['name'];
                 $value = $i['value'];
-             
-                $process->timezone = $user->get_timezone($userid);
+                
                 // Filter name, pre input create, to avoid duplicate inputs
                 $name = preg_replace('/[^\p{N}\p{L}_\s\-.]/u','',$name);
                 
@@ -390,3 +399,4 @@
             throw new ErrorException($message, 0, $severity, $filename, $lineno);
         }
     }
+
