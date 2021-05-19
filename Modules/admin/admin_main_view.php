@@ -182,6 +182,18 @@ listItem;
         <a href="<?php echo $path; ?>admin/db" class="btn btn-info"><?php echo _('Update Database'); ?></a>
     </aside>
 
+    <?php 
+    // COMPONENTS VIEW
+    // -------------------
+    ?>
+    <aside class="d-md-flex justify-content-between align-items-center pb-md-2 border-top pb-md-0 text-right pb-2 border-top px-1 collapse">
+        <div class="text-left span6 ml-0">
+            <h4 class="text-info text-uppercase mb-2"><?php echo _('Component manager'); ?></h4>
+            <p><?php echo _('Selectively update system components or switch between branches'); ?></p>
+        </div>
+        <a href="<?php echo $path; ?>admin/components" class="btn btn-info"><?php echo _('Components'); ?></a>
+    </aside>
+
     <?php } ?>
 
     <?php
@@ -368,7 +380,7 @@ listItem;
         <h4 class="text-info text-uppercase border-top pt-2 mt-0 px-1"><?php echo _('MySQL'); ?></h4>
         <dl class="row">
             <?php echo row(_('Version'), $system['db_version']); ?>
-            <?php echo row(_('Host'), $system['redis_server'] . ' (' . $system['redis_ip'] . ')'); ?>
+            <?php echo row(_('Host'), $system['db_server'] . ' (' . $system['db_ip'] . ')'); ?>
             <?php echo row(_('Date'), $system['db_date']); ?>
             <?php echo row(_('Stats'), $system['db_stat']); ?>
         </dl>
