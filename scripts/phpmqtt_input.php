@@ -399,4 +399,3 @@
             throw new ErrorException($message, 0, $severity, $filename, $lineno);
         }
     }
-
