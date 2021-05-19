@@ -1148,7 +1148,7 @@ class Feed
 
 
     /* Redis helpers */
-    private function load_to_redis($userid)
+    public function load_to_redis($userid)
     {
         $result = $this->mysqli->query("SELECT * FROM feeds WHERE `userid` = '$userid'");
         while ($row = $result->fetch_object())

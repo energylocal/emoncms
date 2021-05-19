@@ -54,10 +54,9 @@ function languagecode_to_name($langs) {
         <h3><?php echo _('My account'); ?></h3>
 
         <div id="account">
-            <!--
             <div class="account-item">
                 <span class="muted"><?php echo _('User ID'); ?></span><br><span class="userid"></span>
-            </div>-->
+            </div>
 
             <div class="account-item">
                 <span class="muted"><?php echo _('Username'); ?></span>
@@ -118,9 +117,11 @@ function languagecode_to_name($langs) {
         
         
 	      <br>
+	      <!--
         <div class="account-item">
             <button class="btn btn-danger" id="deleteall"><?php echo _('Delete my account'); ?></button>
         </div>
+        
         
         <h3><?php echo _('Mobile app'); ?></h3>
         <div class="account-item">
@@ -141,6 +142,7 @@ function languagecode_to_name($langs) {
 	          </tr>
 	        </table>
         </div>
+        -->
         <?php } ?>
     </div>
     <div class="span8">
@@ -157,9 +159,10 @@ function languagecode_to_name($langs) {
         if ($result = $mysqli->query("SELECT `key` FROM provision WHERE `userid`='$userid'")) {
             while ($row = $result->fetch_object()) {
                 $key = $row->key;
-                $device = json_decode($redis->get("provision:$key"));
-                $device->key = $key;
-                $devices[] = $device;
+                if ($device = json_decode($redis->get("provision:$key"))) {
+                    $device->key = $key;
+                    $devices[] = $device;
+                }
             }
         }
         echo view("Modules/provision/view.php",array("wanip"=>$wanip,"devices"=>$devices));
