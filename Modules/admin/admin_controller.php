@@ -68,13 +68,24 @@ function admin_controller()
                 $services = array();
                 $system = Admin::system_information();
                 foreach($system['services'] as $key=>$value) {
-                    if (!is_null($system['services'][$key])) {
-                        $services[$key] = array(
+                    if (!is_null($system['services'][$key])) {    // If the service was found on this system
+                        
+                        // Populate service status fields
+                    	$services[$key] = array(
                             'state' => ucfirst($value['ActiveState']),
                             'text' => ucfirst($value['SubState']),
-                            'cssClass' => $value['SubState']==='running' ? 'success': 'danger',
                             'running' => $value['SubState']==='running'
                         );
+                    	
+                    	// Set 'cssClass' based on service's configuration and current status
+                    	if ($value['LoadState']==='masked') {          // Check if service is masked (installed, but configured not to run)
+                    		$services[$key]['cssClass'] = 'masked';
+                    		$services[$key]['text'] = 'Masked';
+                    	} elseif ($value['SubState']==='running') {    // If not masked, check if service is running
+                    		$services[$key]['cssClass'] = 'success';
+                    	} else {                                       // Assume service is in danger
+                    		$services[$key]['cssClass'] = 'danger';
+                    	}
                     }
                 }
                 // add custom messages for feedwriter service
@@ -110,7 +121,7 @@ function admin_controller()
                     'emoncms_logfile'=>$emoncms_logfile,
                     'redis_info'=>$redis_info,
                     'feed_settings'=>$settings['feed'],
-                    'emoncms_modules'=>$system['emoncms_modules'],
+                    'component_summary'=>$system['component_summary'],
                     'php_modules'=>Admin::php_modules($system['php_modules']),
                     'mqtt_version'=>Admin::mqtt_version(),
                     'rpi_info'=> Admin::get_rpi_info(),
