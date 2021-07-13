@@ -10,7 +10,7 @@
 */
 // no direct access
 defined('EMONCMS_EXEC') or die('Restricted access');
-global $path; $v=2;
+global $path, $session; $v=2;
 ?>
 <link href="<?php echo $path; ?>Modules/user/profile/profile.css?v=<?php echo $v; ?>" rel="stylesheet">
 <script type="text/javascript" src="<?php echo $path; ?>Modules/user/profile/md5.js?v=<?php echo $v; ?>"></script>
@@ -25,7 +25,7 @@ global $path; $v=2;
     <tr>
       <td class="muted"><?php echo _('User ID'); ?></td>    
       <td>{{ user.id }}</td>
-      <td><button class="btn btn-small btn-danger" @click="delete_account()"><?php echo _('Delete account'); ?></button></td>
+      <td><?php if ($session['admin']) { ?><button class="btn btn-small btn-danger" @click="delete_account()"><?php echo _('Delete account'); ?></button><?php } ?></td>
     </tr>
     <tr>
       <td class="muted"><?php echo _('Username'); ?></td>
@@ -181,25 +181,6 @@ global $path; $v=2;
   </tr>
 </table>
 
-<div style="background-color:#f0f0f0; padding:20px; max-width:360px">
-
-  <div style="width:49.9%; float:left">
-    <div style="margin-right:20px">
-    <h3 style="margin:0px"><?php echo _('Mobile app'); ?></h3>
-    <p><?php echo _('Scan QR code from the iOS or Android app to connect.');?></p>
-    <p style="padding-top:10px"><?php echo _('Or scan to view MyElectric web app.');?></p> 
-    </div>
-  </div>
-  <div style="width:49.9%; float:left">
-    <div id="qr_apikey"></div>
-  </div>
-  <div style="clear:both"></div>
-
-  <div style="text-align:center; margin-top:15px">
-  <a href="https://play.google.com/store/apps/details?id=org.emoncms.myapps"><img alt="Get it on Google Play" src="<?php echo $path; ?>Modules/user/images/en-play-badge.png" /></a>
-  <a href="https://itunes.apple.com/us/app/emoncms/id1169483587?ls=1&mt=8"><img alt="Download on the App Store" src="<?php echo $path; ?>Modules/user/images/appstore.png" /></a>
-  </div>
-</div>
 </div>
 
 

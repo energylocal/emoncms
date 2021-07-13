@@ -1,6 +1,6 @@
 <?php
 global $session;
-if ($session["write"]) {
+if ($session["admin"]) {
     $menu["setup"]["l2"]['feed'] = array(
         "name"=>"Feeds",
         "href"=>"feed/view", 

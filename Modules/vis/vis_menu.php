@@ -1,6 +1,6 @@
 <?php
 global $session;
-if ($session["write"]) {
+if ($session["admin"]) {
     load_language_files("Modules/vis/locale", "vis_messages");
     $menu["setup"]["l2"]['vis'] = array(
         "name"=>dgettext("vis_messages","Visualization"),
