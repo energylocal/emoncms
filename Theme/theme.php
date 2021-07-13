@@ -12,6 +12,7 @@
 global $settings;
 global $ltime,$path,$emoncms_version,$menu,$session;
 load_language_files("Theme/locale", "theme_messages");
+
 $q = ""; if (isset($_GET['q'])) $q = $_GET['q'];
 
 $v = 31;
@@ -24,7 +25,7 @@ if (!in_array($settings["interface"]["themecolor"], ["blue","sun","yellow2","sta
 <head>
     <meta http-equiv="content-type" content="text/html; charset=UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1">
-    <title>EnergyLocal - <?php echo $route->controller.' '.$route->action.' '.$route->subaction; ?></title>
+    <title>Emoncms - <?php echo $route->controller.' '.$route->action.' '.$route->subaction; ?></title>
     <link rel="shortcut icon" href="<?php echo $path; ?>Theme/<?php echo $settings["interface"]["favicon"]; ?>" />
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -96,10 +97,10 @@ if (!in_array($settings["interface"]["themecolor"], ["blue","sun","yellow2","sta
             <?php echo $content; ?>
         </main>
     </div><!-- eof #wrap -->
-    <!--<div id="footer">
-        <?php echo _('Pweru gan '); ?><a href="http://openenergymonitor.org">OpenEnergyMonitor.org</a>
-        <span> | <a href="https://github.com/emoncms/emoncms/releases"><?php echo $emoncms_version; ?></a></span>
-    </div>-->
+    <div id="footer">
+        <?php echo dgettext('theme_messages','Powered by'); ?>&nbsp;<a href="http://openenergymonitor.org" target="_blank" rel="noopener">OpenEnergyMonitor.org</a>
+        <span> | <a href="https://github.com/emoncms/emoncms/releases" target="_blank" rel="noopener"><?php echo $emoncms_version; ?></a></span>
+    </div>
 
     <script type="text/javascript" src="<?php echo $path; ?>Lib/bootstrap/js/bootstrap.js"></script>
 
