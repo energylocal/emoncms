@@ -116,11 +116,14 @@ function languagecode_to_name($langs) {
         </div>
         
         
-	      <br>
-	      <!--
-        <div class="account-item">
+	      <br>     
+	      <?php if ($session['admin']) { ?>   
+	      <div class="account-item">
             <button class="btn btn-danger" id="deleteall"><?php echo _('Delete my account'); ?></button>
         </div>
+        <?php } ?>
+	      <!--
+
         
         
         <h3><?php echo _('Mobile app'); ?></h3>

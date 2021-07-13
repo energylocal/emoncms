@@ -6,7 +6,7 @@ function delete_user($userid,$mode) {
 
     global $mysqli,$redis,$user,$settings;
 
-    $result1 = $mysqli->query("SELECT id,apikey_read,apikey_write FROM users WHERE id=$userid");
+    $result1 = $mysqli->query("SELECT id,username,apikey_read,apikey_write FROM users WHERE id=$userid");
     if ($user_row = $result1->fetch_object()){
         $result = "User $userid ".time()." ".date("Y-m-d H:i:s",time())."\n";
         
@@ -46,9 +46,15 @@ function delete_user($userid,$mode) {
             if ($mode=="permanentdelete") $redis->del("writeapikey:$apikey");
         }
         
-        $tables = array("app_config","autoconfig","dashboard","emailreport","graph","multigraph","myip","node","statico","rememberme");
+        $tables = array("app_config","autoconfig","dashboard","emailreport","graph","multigraph","myip","node","statico","rememberme","cydynni");
         foreach ($tables as $tablename) {
             $result .= delete_entry_in_table($tablename,$userid,$mode);
+        }
+
+        $result .= "- remoteaccess entry\n";        
+        if ($mode=="permanentdelete") {
+            $mysqli->query("DELETE FROM remoteaccess_users WHERE `id`='$userid'");
+            $mysqli->query("DELETE FROM remoteaccess_acls WHERE `username`='$user_row->username'");
         }
         
         $result .= "- user entry\n";
