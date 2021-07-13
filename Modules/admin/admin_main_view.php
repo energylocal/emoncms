@@ -1,4 +1,5 @@
 <?php
+    $v=1;
     /**
      * View specific functions
      *
@@ -74,17 +75,6 @@ listItem;
 <h2><?php echo _('Administration'); ?></h2>
 
 <div class="admin-container">
-    <?php 
-    // USERS 
-    // -------------------
-    ?>
-    <section class="d-md-flex justify-content-between align-items-center pb-md-2 pb-md-0 text-right pb-2 px-1">
-        <div class="text-left">
-            <h3 class="mt-1 mb-0"><?php echo _('Users'); ?></h3>
-            <p><?php echo _('See a list of registered users') ?></p>
-        </div>
-        <a href="<?php echo $path; ?>admin/users" class="btn btn-info"><?php echo _('Users'); ?></a>
-    </section>
     
     <?php 
     // UPDATES 
@@ -223,7 +213,7 @@ listItem;
             <?php // } ?>
         </div>
     </section>
-    <pre id="update-log-bound"><div id="update-log"></div></pre>
+    <pre id="update-log-bound" class="log"><div id="update-log"></div></pre>
     </div>
     
     <?php //} ?>
@@ -256,7 +246,7 @@ listItem;
     </section>
     
     <section>
-        <pre id="logreply-bound"><div id="logreply"></div></pre>
+        <pre id="logreply-bound" class="log"><div id="logreply"></div></pre>
         <?php if(isset($path_to_config) && is_writable($path_to_config)) { ?>
         <div id="log-level" class="dropup btn-group">
             <a class="btn btn-small dropdown-toggle btn-inverse text-uppercase" data-toggle="dropdown" href="#" title="<?php echo _('Change the logging level') ?>">
@@ -310,7 +300,6 @@ listItem;
         <h4 class="text-info text-uppercase border-top pt-2 mt-0 px-1"><?php echo _('Emoncms'); ?></h4>
         <dl class="row">
             <?php echo row(_('Version'),$emoncms_version); ?>
-            <?php echo row(_('Modules'), $emoncms_modules); ?>
             <?php
             $git_parts = array(
                 row(_('URL'), $system['git_URL'],'','overflow-hidden'),
@@ -320,6 +309,7 @@ listItem;
             $git_details = sprintf('<dl class="row">%s</dl>',implode('', $git_parts));
         ?>
             <?php echo row(_('Git'), $git_details); ?>
+            <?php echo row(_('Components'), $component_summary); ?>
         </dl>
 
         <h4 class="text-info text-uppercase border-top pt-2 mt-0 px-1"><?php echo _('Server'); ?></h4>
@@ -350,8 +340,8 @@ listItem;
         </dl>
 
         <div class="input-prepend" style="float:right; padding-top:5px">
-            <span class="add-on">Write Load Period</span>
-            <button id="resetwriteload" class="btn btn-info">Reset</button>
+            <span class="add-on"><?php echo _('Write Load Period'); ?></span>
+            <button id="resetwriteload" class="btn btn-info"><?php echo _('Reset'); ?></button>
         </div>
         <h4 class="text-info text-uppercase border-top pt-2 mt-0 px-1"><?php echo _('Disk'); ?></h4>
         <br>

@@ -22,9 +22,7 @@ $schema['users'] = array(
     'tags' => array('type' => 'text'),
     'startingpage' => array('type'=>'varchar(64)', 'default'=>''),
     'email_verified' => array('type' => 'int(11)', 'default'=>0),
-    'verification_key' => array('type' => 'varchar(64)', 'default'=>''),
-    //'mqtthash' => array('type' => 'varchar(67)'),
-    'preferences' => array('type' => 'varchar(255)', 'default'=>NULL, 'Null'=>true)
+    'verification_key' => array('type' => 'varchar(64)', 'default'=>'')
 );
 
 $schema['rememberme'] = array(
