@@ -26,6 +26,12 @@ if ($session["admin"]) {
                 "href"=>"admin/users", 
                 "order"=>1, 
                 "icon"=>"input"
+            ),
+            "clubs"=>array(
+                "name"=>_("Clubs"),
+                "href"=>"admin/clubs", 
+                "order"=>1, 
+                "icon"=>"input"
             )
         )
     );

@@ -55,6 +55,12 @@ function admin_controller()
     
     if ($session['admin']) {
         if ($route->format == 'html') {
+        
+            if ($route->action == 'clubs') {
+                unset($session["token"]);
+                return view("Modules/club/app/admin_view.php",array('session'=>$session));
+            }
+        
             if ($route->action == 'view') {
                 require "Modules/admin/admin_model.php";
                 global $path, $emoncms_version, $shutdownPi;

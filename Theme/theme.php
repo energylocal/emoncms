@@ -20,6 +20,13 @@ $v = 31;
 if (!in_array($settings["interface"]["themecolor"], ["blue","sun","yellow2","standard","copper","black","green"])) {
     $settings["interface"]["themecolor"] = "standard";
 }
+
+$l = 0;
+foreach ($menu['setup']['l2'] as $mi) {
+    $l++;
+}
+if ($l==0) unset($menu['setup']);
+
 ?>
 <html class="theme-<?php echo $settings["interface"]["themecolor"]; ?> sidebar-dark">
 <head>
