@@ -253,10 +253,6 @@ class User
 
         $apikey_write = generate_secure_key(16);
         $apikey_read = generate_secure_key(16);
-        
-        // MQTT hash
-        // include "Lib/mqtt_hash.php";
-        // $mqtthash = create_hash($password);
 
         $stmt = $this->mysqli->prepare("INSERT INTO users ( username, password, email, salt ,apikey_read, apikey_write, timezone, admin) VALUES (?,?,?,?,?,?,?,0)");
         $stmt->bind_param("sssssss", $username, $password, $email, $salt, $apikey_read, $apikey_write, $timezone);
@@ -270,14 +266,6 @@ class User
         $userid = $this->mysqli->insert_id;
         if ($userid == 1) $this->mysqli->query("UPDATE users SET admin = 1 WHERE id = '1'");
         $stmt->close();
-        
-        // Set MQTT ACL's
-        // $topic = "user/$userid/#";
-        // $stmt = $this->mysqli->prepare("INSERT INTO mqtt_acls (username,topic,rw) VALUES (?,?,7)"); // See acl rw levels: https://github.com/jpmens/mosquitto-auth-plug/issues/356
-        // $stmt->bind_param("ss", $username, $topic);
-        // if (!$stmt->execute()) {
-        //    return array("success"=>false, "Error setting MQTT ACL entry");
-        // }
         
         // Email verification
         if ($this->email_verification) {
@@ -369,7 +357,6 @@ class User
         
         return array('success'=>false, 'message'=>"Invalid email or verification key");
     }
-
 
     public function login($username_or_email, $password, $remembermecheck, $referrer='')
     {
@@ -517,10 +504,6 @@ class User
             $hash = hash('sha256', $new);
             $salt = generate_secure_key(16);
             $password = hash('sha256', $salt . $hash);
-            
-            // MQTT hash
-            // include "Lib/mqtt_hash.php";
-            // $mqtthash = create_hash($new);
 
             $stmt = $this->mysqli->prepare("UPDATE users SET password = ?, salt = ? WHERE id = ?");
             $stmt->bind_param("ssi", $password, $salt, $userid);

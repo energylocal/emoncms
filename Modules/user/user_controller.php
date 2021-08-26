@@ -47,10 +47,7 @@ function user_controller()
                 'v' => 3
             ));
         }
-        if ($route->action == 'view' && $session['write']) {
-            $result = view("Modules/user/profile/profile.php", array());
-            return array('content'=>$result,'page_classes'=>array('collapsed','manual'));
-        }
+        if ($route->action == 'view' && $session['write']) $result = view("Modules/user/profile/profile.php", array());
         
         if ($route->action == 'logout') {
             // decode url parameters
@@ -96,8 +93,8 @@ function user_controller()
         
         if ($route->action == 'passwordreset') $result = $user->passwordreset(get('username'),get('email'));
         // Apikey
-        // if ($route->action == 'newapikeyread' && $session['write']) $result = $user->new_apikey_read($session['userid']);
-        // if ($route->action == 'newapikeywrite' && $session['write']) $result = $user->new_apikey_write($session['userid']);
+        if ($route->action == 'newapikeyread' && $session['write']) $result = $user->new_apikey_read($session['userid']);
+        if ($route->action == 'newapikeywrite' && $session['write']) $result = $user->new_apikey_write($session['userid']);
 
         if ($route->action == 'auth' && !$session['read']) $result = $user->get_apikeys_from_login(post('username'),post('password'));
 
