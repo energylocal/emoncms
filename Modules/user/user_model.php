@@ -523,7 +523,7 @@ class User
             // $mqtthash = create_hash($new);
 
             $stmt = $this->mysqli->prepare("UPDATE users SET password = ?, salt = ? WHERE id = ?");
-            $stmt->bind_param("ssi", $hash, $salt, $userid);
+            $stmt->bind_param("ssi", $password, $salt, $userid);
             $stmt->execute();
             $stmt->close();
             

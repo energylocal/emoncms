@@ -1,6 +1,6 @@
 <?php
-global $session;
-if ($session["admin"]) {
+global $session, $route;
+if ($session['admin'] || $route->controller=="feed") {
     $menu["setup"]["l2"]['feed'] = array(
         "name"=>_("Feeds"),
         "href"=>"feed/view", 
