@@ -147,7 +147,7 @@
             $last_retry = time();
             try {
                 // SUBSCRIBE
-                $log->warn("Not connected, retrying connection");
+                $log->warn("Not connected, retrying connection for ".$settings['mqtt']['user']."@".$settings['mqtt']['host'].":".$settings['mqtt']['port']);
                 $mqtt_client->setCredentials($settings['mqtt']['user'],$settings['mqtt']['password']);
                 if(isset($settings['mqtt']['capath']) && $settings['mqtt']['capath'] !== null) {
                     $log->warn("mqtt: using ssl");
@@ -256,7 +256,7 @@
             if ((json_last_error() === JSON_ERROR_NONE) && is_array($jsondata)) {
                 // JSON is valid - is it an array
                 $jsoninput = true;
-                $log->info("MQTT Valid JSON found ");
+                $log->info("MQTT Valid JSON found");
                 //Create temporary array and change all keys to lower case to look for a 'time' key
                 $jsondataLC = array_change_key_case($jsondata);
 
@@ -341,7 +341,7 @@
                     $input_name_parts = array();
                     for ($i=$min_route_len-1; $i<$route_len; $i++) $input_name_parts[] = $route[$i];
                     $input_name = implode("_",$input_name_parts);
-                
+
                     $inputs[] = array("userid"=>$userid, "time"=>$time, "nodeid"=>$nodeid, "name"=>$input_name, "value"=>$value);
                 }
                 else
@@ -353,12 +353,17 @@
                     }
                 }
             } else {
-                $log->error("No matching MQTT topics! None or null inputs will be recorded!");  
+                $log->error("No matching MQTT topics! None or null inputs will be recorded!");
             }
 
             if (!isset($dbinputs[$nodeid])) {
+                $log->info("Creating new device for $nodeid");
                 $dbinputs[$nodeid] = array();
-                if ($device && method_exists($device,"create")) $device->create($userid,$nodeid,null,null,null);
+                $type = null;
+                if (startsWith($nodeid, "tasmota_")) {
+                  $type = "tasmota";
+                }
+                if ($device && method_exists($device,"create")) $device->create($userid,$nodeid,null,null,$type);
             }
 
             $tmp = array();
@@ -417,4 +422,9 @@
         if (error_reporting() & $severity) {
             throw new ErrorException($message, 0, $severity, $filename, $lineno);
         }
+    }
+
+    function startsWith( $haystack, $needle ) {
+        $length = strlen( $needle );
+        return substr( $haystack, 0, $length ) === $needle;
     }
