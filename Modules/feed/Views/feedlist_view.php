@@ -172,9 +172,10 @@ body{padding:0!important}
     <p><?php echo _('Feeds are where your monitoring data is stored. The route for creating storage feeds is to start by creating inputs (see the inputs tab). Once you have inputs you can either log them straight to feeds or if you want you can add various levels of input processing to your inputs to create things like daily average data or to calibrate inputs before storage. Alternatively you can create Virtual feeds, this is a special feed that allows you to do post processing on existing storage feeds data, the main advantage is that it will not use additional storage space and you may modify post processing list that gets applyed on old stored data. You may want the next link as a guide for generating your request: '); ?><a href="api"><?php echo _('Feed API helper'); ?></a></p>
 </div>
 
-<div id="feed-footer" class="hide">
+<div id="feed-footer">
     <button id="refreshfeedsize" class="btn btn-small" ><i class="icon-refresh" ></i>&nbsp;<?php echo _('Refresh feed size'); ?></button>
-    <button id="addnewvirtualfeed" class="btn btn-small" data-toggle="modal" data-target="#newFeedNameModal"><i class="icon-plus-sign" ></i>&nbsp;<?php echo _('New virtual feed'); ?></button>
+    <button id="addnewfeed" class="btn btn-small" data-toggle="modal" data-target="#newFeedNameModal"><i class="icon-plus-sign" ></i>&nbsp;<?php echo _('New feed'); ?></button>
+    <button id="importdata" class="btn btn-small" data-toggle="modal" data-target="#importDataModal"><i class="icon-arrow-up" ></i>&nbsp;<?php echo _('Import data'); ?></button>
 </div>
 <div id="feed-loader" class="ajax-loader"></div>
 
@@ -256,7 +257,7 @@ body{padding:0!important}
             <td>
                 <p><b><?php echo _('Interval');?></b></p>
                 <select id="export-interval" >
-                    <option value=1><?php echo _('Auto');?></option>
+                    <option value=original><?php echo _('Original feed interval');?></option>
                     <option value=5><?php echo _('5s');?></option>
                     <option value=10><?php echo _('10s');?></option>
                     <option value=30><?php echo _('30s');?></option>
@@ -268,25 +269,24 @@ body{padding:0!important}
                     <option value=3600><?php echo _('1 hour');?></option>
                     <option value=21600><?php echo _('6 hour');?></option>
                     <option value=43200><?php echo _('12 hour');?></option>
-                    <option value=86400><?php echo _('Daily');?></option>
-                    <option value=604800><?php echo _('Weekly');?></option>
-                    <option value=2678400><?php echo _('Monthly');?></option>
-                    <option value=31536000><?php echo _('Annual');?></option>
+                    <option value=daily><?php echo _('Daily');?></option>
+                    <option value=weekly><?php echo _('Weekly');?></option>
+                    <option value=monthly><?php echo _('Monthly');?></option>
+                    <option value=annual><?php echo _('Annual');?></option>
                 </select>
+                
+                <p class="hide"><input id="export-average" type="checkbox" style="margin-top:-4px"> Return Averages</p>
             </td>
             <td>
                 <p><b><?php echo _('Date time format');?></b></p>
-                <div class="checkbox">
-                  <label><input type="checkbox" id="export-timeformat" value="" checked>Excel (d/m/Y H:i:s)</label>
-                </div>
-                <label><?php echo _('Offset secs (for daily)');?>&nbsp;<input id="export-timezone-offset" type="text" class="input-mini" disabled></label>
+                <select id="export-timeformat">
+                    <option value="unix">Unix timestamp</option>
+                    <option value="excel">Excel (d/m/Y H:i:s), Timezone set in user account</option>
+                    <option value="iso8601">ISO 8601 (e.g: 2020-01-01T10:00:00+01:00)</option>
+                </select>
             </td>
         </tr>
         </table>
-            <div class="alert alert-info">
-                <p><?php echo _('Selecting an interval shorter than the feed interval (or Auto) will use the feed interval instead. Averages are only returned for feed engines with built in averaging.');?></p>
-                <p><?php echo _('Date time in excel format is in user timezone. Offset can be set if exporting in Unix epoch time format.');?></p>
-            </div>
     </div>
     <div class="modal-footer">
         <div id="downloadsizeplaceholder" style="float: left"><?php echo _('Estimated download size: ');?><span id="downloadsize">0</span>MB</div>
@@ -358,17 +358,24 @@ body{padding:0!important}
 <div id="newFeedNameModal" class="modal hide keyboard" tabindex="-1" role="dialog" aria-labelledby="newFeedNameModalLabel" aria-hidden="true" data-backdrop="static">
     <div class="modal-header">
         <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
-        <h3 id="newFeedNameModalLabel"><?php echo _('New Virtual Feed'); ?></h3>
+        <h3 id="newFeedNameModalLabel"><?php echo _('New Feed'); ?></h3>
     </div>
     <div class="modal-body">
         <label><?php echo _('Feed Name: '); ?></label>
-        <input type="text" value="New Virtual Feed" id="newfeed-name">
+        <input type="text" value="New Feed" id="newfeed-name">
         <label><?php echo _('Feed Tag: '); ?></label>
-        <input type="text" value="Virtual" id="newfeed-tag">
-        <label><?php echo _('Feed DataType: '); ?></label>
-        <select id="newfeed-datatype">
-            <option value=1>Realtime</option>
-            <option value=2>Daily</option>
+        <input type="text" value="" id="newfeed-tag">
+        <label><?php echo _('Feed Engine: '); ?></label>
+        <select id="newfeed-engine" style="width:350px">
+            <option value="7" selected>VIRTUAL Feed</option>
+            <?php foreach (Engine::get_all_descriptive() as $engine) { ?>
+            <option value="<?php echo $engine["id"]; ?>"><?php echo $engine["description"]; ?></option>
+            <?php } ?>
+        </select>      
+        <select id="newfeed-interval" class="input-mini hide">
+            <?php foreach (Engine::available_intervals() as $i) { ?>
+            <option value="<?php echo $i["interval"]; ?>"><?php echo dgettext('process_messages',$i["description"]); ?></option>
+            <?php } ?>
         </select>
     </div>
     <div class="modal-footer">
@@ -377,6 +384,7 @@ body{padding:0!important}
     </div>
 </div>
 
+<?php require "Modules/feed/Views/importer.php"; ?>
 <?php require "Modules/process/Views/process_ui.php"; ?>
 <!------------------------------------------------------------------------------------------------------------------------------------------------- -->
 <script>
@@ -389,6 +397,10 @@ var selected_feeds = {};
 var local_cache_key = 'feed_nodes_display';
 var nodes_display = {};
 var feed_engines = ['MYSQL','TIMESTORE','PHPTIMESERIES','GRAPHITE','PHPTIMESTORE','PHPFINA','PHPFIWA (No longer supported)','VIRTUAL','MEMORY','REDISBUFFER','CASSANDRA'];
+var engines_hidden = JSON.parse(<?php echo json_encode($settings["feed"]['engines_hidden']); ?>);
+
+var available_intervals = <?php echo json_encode(Engine::available_intervals()); ?>;
+var tmp = []; for (var z in available_intervals) tmp.push(available_intervals[z]['interval']); available_intervals = tmp;
 
 // auto refresh
 update_feed_list();
@@ -407,11 +419,9 @@ function update_feed_list() {
         $('#feed-loader').hide();
         if (data.length == 0){
             //$("#feed-header").hide();
-            $("#feed-footer").hide();
             $("#feed-none").show();
         } else {
             //$("#feed-header").show();
-            $("#feed-footer").show();
             $("#feed-none").hide();
         }
         feeds = {};
@@ -449,11 +459,7 @@ function update_feed_list() {
                 node_time[n] = parseInt(feed.engine) !== 7 && feed.time > node_time[n] ? feed.time : node_time[n];
             }
         }
-        // todo: remove the requirement of a fixed list. Load from api?
-        var datatypes = {
-            1: _('Realtime'),
-            2: _('Daily')
-        }
+
         // display nodes and feeds
         var counter = 0;
         for (var node in nodes) {
@@ -478,13 +484,11 @@ function update_feed_list() {
             for (var feed in nodes[node]) {
                 var feed = nodes[node][feed];
                 var feedid = feed.id;
-                var datatype = datatypes[feed.datatype] || '';
 
                 var title_lines = [feed.name,
                                   '-----------------------',
                                   _('Tag') + ': ' + feed.tag,
-                                  _('Feed ID') + ': ' + feedid,
-                                  _('Datatype') + ': ' + datatype]
+                                  _('Feed ID') + ': ' + feedid]
                 
                 if(feed.engine == 5) {
                     title_lines.push(_('Feed Interval')+": "+(feed.interval||'')+'s')
@@ -994,7 +998,7 @@ function isSelectionValidForTrim(){
         const REDISBUFFER = 9;   // (internal use only) Redis Read/Write buffer, for low write mode
         const CASSANDRA = 10;    // Cassandra
     */
-    let allowed_engines = [0,5,8] // array of allowed storage engines
+    let allowed_engines = [0,2,5,8] // array of allowed storage engines
     for (var feedid in selected_feeds) {
         engineid = parseInt(feeds[feedid].engine); // convert string to number
         // if feed selected and engineid is NOT found in allowed_engines
@@ -1165,7 +1169,7 @@ function isSelectionValidForClear(){
         const REDISBUFFER = 9;   // (internal use only) Redis Read/Write buffer, for low write mode
         const CASSANDRA = 10;    // Cassandra
     */
-    let allowed_engines = [0,5,8]; // array of allowed storage engines 
+    let allowed_engines = [0,2,5,8]; // array of allowed storage engines 
     for (var feedid in selected_feeds) {
         engineid = parseInt(feeds[feedid].engine); // convert string to number
         // if feed selected and engineid is NOT found in allowed_engines
@@ -1285,16 +1289,24 @@ function feed_selection()
 watchResize(onResize, 20) // only call onResize() after 20ms of delay (similar to debounce)
 
 // ---------------------------------------------------------------------------------------------
-// Virtual Feed feature
+// Create new feed dialog
 // ---------------------------------------------------------------------------------------------
+
+for (var e in engines_hidden) {
+    $('#newfeed-engine option[value='+engines_hidden[e]+']').hide();
+}
+
 $("#newfeed-save").click(function (){
-    var newfeedname = $('#newfeed-name').val();
-    var newfeedtag = $('#newfeed-tag').val();
-    var engine = 7;   // Virtual Engine
-    var datatype = $('#newfeed-datatype').val();
-    var options = {};
+    var name = $('#newfeed-name').val();
+    var tag = $('#newfeed-tag').val();
+    var engine = $('#newfeed-engine').val();
     
-    var result = feed.create(newfeedtag,newfeedname,datatype,engine,options);
+    var options = {};
+    if (engine==5) {
+        options.interval = $('#newfeed-interval').val();
+    }
+    
+    var result = feed.create(tag,name,engine,options);
     feedid = result.feedid;
 
     if (!result.success || feedid<1) {
@@ -1303,6 +1315,15 @@ $("#newfeed-save").click(function (){
     } else {
         update_feed_list(); 
         $('#newFeedNameModal').modal('hide');
+    }
+});
+
+$('#newfeed-engine').change(function(){
+    var engine = $(this).val();
+    if (engine==5) {
+        $('#newfeed-interval').show();
+    } else {
+        $('#newfeed-interval').hide();
     }
 });
 
@@ -1329,19 +1350,28 @@ $("#save-processlist").click(function (){
 // Export feature
 // ---------------------------------------------------------------------------------------------
 $(".feed-download").click(function(){
+    $("#export-average").parent().hide();
+    $("#export-average").data("enabled",0);
+    
     var ids = [];
     for (var feedid in selected_feeds) {
-        if (selected_feeds[feedid]==true) ids.push(parseInt(feedid));
+        if (selected_feeds[feedid]==true) {
+            ids.push(parseInt(feedid));
+        }
+    }
+    
+    var selected_interval = $('#export-interval').val();
+    // Enable averaging checkbox for single feed selection, phpfina & phptimeseries
+    var engine = feeds[ids[0]].engine;
+    if (ids.length==1 && (engine==2 || engine==5)) {
+        $("#export-average").data("enabled",1);
+        if (selected_interval!="original") {
+            $("#export-average").parent().show();
+        }
     }
 
     $("#export").attr('feedcount',ids.length);
     calculate_download_size(ids.length);
-
-    if ($("#export-timezone-offset").val()=="") {   
-        var timezoneoffset = user.timezoneoffset();
-        if (timezoneoffset==null) timezoneoffset = 0;
-        $("#export-timezone-offset").val(parseInt(timezoneoffset));
-    }
     
     $('#feedExportModal').modal('show');
 });
@@ -1372,8 +1402,17 @@ $('#datetimepicker2').on("changeDate", function (e) {
     $('#datetimepicker1').data("datetimepicker").setEndDate(e.date);
 });
 
+$('#export-interval').on('change', function(e) {
+    if ($("#export-average").data("enabled")) {
+        if ($(this).val()=="original") {
+            $("#export-average").parent().hide();
+        } else {
+            $("#export-average").parent().show();
+        }
+    }
+});
+
 $('#export-interval, #export-timeformat').on('change', function(e) {
-    $("#export-timezone-offset").prop("disabled", $("#export-timeformat").prop('checked'));
     calculate_download_size($("#export").attr('feedcount')); 
 });
 
@@ -1391,9 +1430,7 @@ $("#export").click(function()
     var export_start = parse_timepicker_time($("#export-start").val());
     var export_end = parse_timepicker_time($("#export-end").val());
     var export_interval = $("#export-interval").val();
-    var export_timezone_offset = parseInt($("#export-timezone-offset").val());
-    var export_timeformat = ($("#export-timeformat").prop('checked') ? 1 : 0);
-    if (export_timeformat) { export_timezone_offset = 0; }
+    var export_timeformat = $("#export-timeformat").val();
 
     if (!export_start) {alert("<?php echo _('Please enter a valid start date.'); ?>"); return false; }
     if (!export_end) {alert("<?php echo _('Please enter a valid end date.'); ?>"); return false; }
@@ -1403,11 +1440,27 @@ $("#export").click(function()
     var downloadlimit = <?php echo $settings['feed']['csv_downloadlimit_mb']; ?>;
     var downloadsize = calculate_download_size(ids.length);
     
-    if (ids.length>1) {
-        url = path+"feed/csvexport.json?ids="+ids.join(",")+"&start="+(export_start+(export_timezone_offset))+"&end="+(export_end+(export_timezone_offset))+"&interval="+export_interval+"&timeformat="+export_timeformat+"&name="+ids.join("_");
-    } else {
-        url = path+"feed/csvexport.json?id="+ids.join(",")+"&start="+(export_start+(export_timezone_offset))+"&end="+(export_end+(export_timezone_offset))+"&interval="+export_interval+"&timeformat="+export_timeformat+"&name="+ids.join("_");
+    var enable_average = $("#export-average")[0].checked*1;
+    var average_str = "&average="+enable_average;
+    
+    var params = {
+        ids: ids.join(","),
+        start: export_start*1000,
+        end: export_end*1000,
+        interval: export_interval,
+        average: enable_average,
+        timeformat: export_timeformat,
+        csv: 1,
+        skipmissing: 0,
+        limitinterval: 0
     }
+    
+    var param_parts = [];
+    for (var z in params) {
+        param_parts.push(z+"="+params[z]);
+    }
+    
+    var url = path+"feed/data.json?"+param_parts.join("&");
 
     if (downloadsize>(downloadlimit*1048576)) {
         var r = confirm("<?php echo _('Estimated download file size is large.'); ?>\n<?php echo _('Server could take a long time or abort depending on stored data size.'); ?>\n<?php echo _('Limit is'); ?> "+downloadlimit+"MB.\n\n<?php echo _('Try exporting anyway?'); ?>");
@@ -1447,5 +1500,6 @@ function parse_timepicker_time(timestr){
 
     return new Date(date[2],date[1]-1,date[0],time[0],time[1],time[2],0).getTime() / 1000;
 }
-</script>
 
+</script>
+<script type="text/javascript" src="<?php echo $path; ?>Modules/feed/Views/importer.js"></script>

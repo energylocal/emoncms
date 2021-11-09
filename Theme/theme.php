@@ -15,7 +15,7 @@ load_language_files("Theme/locale", "theme_messages");
 
 $q = ""; if (isset($_GET['q'])) $q = $_GET['q'];
 
-$v = 31;
+$v = 37;
 
 if (!in_array($settings["interface"]["themecolor"], ["blue","sun","yellow2","standard","copper","black","green"])) {
     $settings["interface"]["themecolor"] = "standard";
@@ -85,7 +85,7 @@ if ($l==0) unset($menu['setup']);
             <?php } ?>
             </ul></div>
         </div>
-        <div class="menu-l2"><div class="menu-l2-inner"><ul></ul></div><div id="menu-l2-controls"></div></div><div class="menu-l3"><ul></ul></div>
+        <div class="menu-l2"><div class="menu-l2-inner"><ul></ul></div><div id="menu-l2-controls" class="ctrl-hide"></div></div><div class="menu-l3"><ul></ul></div>
         <?php
         $contentContainerClasses[] = 'content-container';
         
