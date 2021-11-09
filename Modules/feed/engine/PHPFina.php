@@ -906,7 +906,7 @@ class PHPFina implements engine_methods
             
         return floor($bytesize / 4.0);
     }   
-    
+        
     public function upload_fixed_interval($id,$start,$interval,$npoints)
     {
         $id = (int) $id;
@@ -1087,3 +1087,4 @@ class PHPFina implements engine_methods
     }
      
 }
+
