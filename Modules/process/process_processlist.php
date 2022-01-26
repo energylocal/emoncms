@@ -825,6 +825,7 @@ class Process_ProcessList
     // / Below are functions of this module processlist
     public function scale($arg, $time, $value)
     {
+        if ($value===null) return $value;
         return $value * $arg;
     }
 
@@ -839,6 +840,7 @@ class Process_ProcessList
 
     public function offset($arg, $time, $value)
     {
+        if ($value===null) return $value;
         return $value + $arg;
     }
 
@@ -890,7 +892,7 @@ class Process_ProcessList
 
     public function log_to_feed($id, $time, $value)
     {
-        $this->feed->insert_data($id, $time, $time, $value);
+        $this->feed->post($id, $time, $time, $value);
 
         return $value;
     }
@@ -898,7 +900,7 @@ class Process_ProcessList
     public function log_to_feed_join($id, $time, $value)
     {
         $padding_mode = "join";
-        $this->feed->insert_data($id, $time, $time, $value, $padding_mode);
+        $this->feed->post($id, $time, $time, $value, $padding_mode);
         return $value;
     }
 
@@ -1014,7 +1016,7 @@ class Process_ProcessList
         }
 
         $padding_mode = "join";
-        $this->feed->insert_data($feedid, $time_now, $time_now, $new_kwh, $padding_mode);
+        $this->feed->post($feedid, $time_now, $time_now, $new_kwh, $padding_mode);
         
         return $value;
     }
@@ -1050,7 +1052,7 @@ class Process_ProcessList
             # We are working in a new slot (new day) so don't increment it with the data from yesterday
             $new_kwh = $kwh_inc;
         }
-        $this->feed->update_data($feedid, $time_now, $current_slot, $new_kwh);
+        $this->feed->post($feedid, $time_now, $current_slot, $new_kwh);
 
         return $value;
     }
@@ -1084,7 +1086,7 @@ class Process_ProcessList
                 $new_kwh = $kwhinc;
             }
 
-            $this->feed->update_data($feedid, $time_now, $current_slot, $new_kwh);
+            $this->feed->post($feedid, $time_now, $current_slot, $new_kwh);
         }
         
         $redis->hMset("process:kwhtokwhd:$feedid", array('time' => $time_now, 'value' => $value));
@@ -1119,7 +1121,7 @@ class Process_ProcessList
         
         if($last_slot != $current_slot) $ontime = $time_elapsed;
 
-        $this->feed->update_data($feedid, $time_now, $current_slot, $ontime);
+        $this->feed->post($feedid, $time_now, $current_slot, $ontime);
 
         return $value;
     }
@@ -1135,7 +1137,7 @@ class Process_ProcessList
         if ($redis->exists("process:ratechange:$feedid")) {
             $lastvalue = $redis->hmget("process:ratechange:$feedid",array('time','value'));
             $ratechange = $value - $lastvalue['value'];
-            $this->feed->insert_data($feedid, $time, $time, $ratechange);
+            $this->feed->post($feedid, $time, $time, $ratechange);
         }
         $redis->hMset("process:ratechange:$feedid", array('time' => $time, 'value' => $value));
 
@@ -1162,7 +1164,7 @@ class Process_ProcessList
         $new_kwh = $last['value'] + ($value / 1000.0);
         if ($last_slot != $current_slot) $new_kwh = ($value / 1000.0);
         
-        $this->feed->update_data($feedid, $time_now, $current_slot, $new_kwh);
+        $this->feed->post($feedid, $time_now, $current_slot, $new_kwh);
 
         return $value;
     }
@@ -1173,7 +1175,7 @@ class Process_ProcessList
         if ($last===null) return $value; // feed does not exist   
         $value = $last['value'] + $value;
         $padding_mode = "join";
-        $this->feed->insert_data($feedid, $time, $time, $value, $padding_mode);
+        $this->feed->post($feedid, $time, $time, $value, $padding_mode);
         return $value;
     }
     /*
@@ -1183,7 +1185,7 @@ class Process_ProcessList
         if ($last===null) return $value; // feed does not exist  
         $value = $last['value'] + $value;
         $feedtime = $this->getstartday($time_now);
-        $this->feed->update_data($feedid, $time_now, $feedtime, $value);
+        $this->feed->post($feedid, $time_now, $feedtime, $value);
         return $value;
     }*/
 
@@ -1213,7 +1215,7 @@ class Process_ProcessList
             }
 
             // Save to allow next difference calc.
-            $this->feed->insert_data($feedid,$time_now,$time_now,$value);
+            $this->feed->post($feedid,$time_now,$time_now,$value);
 
             return $pulse_diff;
         }
@@ -1232,7 +1234,7 @@ class Process_ProcessList
             $timeelapsed = ($time - $lastvalue['time']);
             if ($timeelapsed>0) {     //This only avoids a crash, it's not ideal to return "power = 0" to the next process.
                 $power = $joules / $timeelapsed;
-                $this->feed->insert_data($feedid, $time, $time, $power);
+                $this->feed->post($feedid, $time, $time, $power);
             } // should have else { log error message }
         }
         $redis->hMset("process:kwhtopower:$feedid", array('time' => $time, 'value' => $value));
@@ -1252,10 +1254,8 @@ class Process_ProcessList
         $time_check = $this->getstartday($last_time);
 
         // Runs on setup and midnight to reset current value - (otherwise db sets 0 as new max)
-        if ($time_check != $feedtime) {
-            $this->feed->insert_data($feedid, $time_now, $feedtime, $value);
-        } else {
-            if ($value > $last_val) $this->feed->update_data($feedid, $time_now, $feedtime, $value);
+        if ($time_check != $feedtime || $value > $last_val) {
+            $this->feed->post($feedid, $time_now, $feedtime, $value);
         }
         return $value;
     }
@@ -1272,10 +1272,8 @@ class Process_ProcessList
         $time_check = $this->getstartday($last_time);
 
         // Runs on setup and midnight to reset current value - (otherwise db sets 0 as new min)
-        if ($time_check != $feedtime) {
-            $this->feed->insert_data($feedid, $time_now, $feedtime, $value);
-        } else {
-            if ($value < $last_val) $this->feed->update_data($feedid, $time_now, $feedtime, $value);
+        if ($time_check != $feedtime || $value < $last_val) {
+            $this->feed->post($feedid, $time_now, $feedtime, $value);
         }
         return $value;
 
@@ -1348,7 +1346,7 @@ class Process_ProcessList
             }
 
             $padding_mode = "join";
-            $this->feed->insert_data($feedid, $time, $time, $totalwh, $padding_mode);
+            $this->feed->post($feedid, $time, $time, $totalwh, $padding_mode);
         }
         $redis->hMset("process:whaccumulator:$feedid", array('time' => $time, 'value' => $value));
 
@@ -1381,7 +1379,7 @@ class Process_ProcessList
             }
 
             $padding_mode = "join";
-            $this->feed->insert_data($feedid, $time, $time, $totalkwh, $padding_mode);
+            $this->feed->post($feedid, $time, $time, $totalkwh, $padding_mode);
             
         }
         $redis->hMset("process:kwhaccumulator:$feedid", array('time' => $time, 'value' => $value));
@@ -1472,17 +1470,20 @@ class Process_ProcessList
     // Loads full feed to data cache if it's the first time to load
     public function source_feed_data_time($feedid, $time, $value, $options)
     {
-        // Find out why these are not always set?
-        if (!isset($options['start']) || !isset($options['end'])) return false;
-        
-        // Load feed to data cache if it has not yet been loaded
-        if (!isset($this->data_cache[$feedid])) {
-            $this->data_cache[$feedid] = $this->feed->get_data($feedid,$options['start']*1000,$options['end']*1000,$options['interval'],$options['average'],$options['timezone'],'unix',false,0,0);
-        }
-
-        // Return value
-        if (isset($this->data_cache[$feedid][$options['index']])) {
-            return $this->data_cache[$feedid][$options['index']][1];
+        // If start and end are set this is a request over muultiple data points
+        if (isset($options['start']) && isset($options['end'])) {      
+            // Load feed to data cache if it has not yet been loaded
+            if (!isset($this->data_cache[$feedid])) {
+                $this->data_cache[$feedid] = $this->feed->get_data($feedid,$options['start']*1000,$options['end']*1000,$options['interval'],$options['average'],$options['timezone'],'unix',false,0,0);
+            }
+            // Return value
+            if (isset($this->data_cache[$feedid][$options['index']])) {
+                return $this->data_cache[$feedid][$options['index']][1];
+            }
+        } else {
+            // This is a request for the last value only
+            $timevalue = $this->feed->get_timevalue($feedid);
+            return $timevalue["value"];
         }
         return null;
     }

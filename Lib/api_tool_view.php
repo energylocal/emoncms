@@ -56,16 +56,23 @@ bindtextdomain("lib_messages",__DIR__."/locale");
             <option value=0><?php echo dgettext('lib_messages','No'); ?></option>
             <option value=1><?php echo dgettext('lib_messages','Yes'); ?></option>
           </select>
+
+          <select v-else-if="item.type=='select'" v-model.value="item.default" @change="update">
+            <option v-for="option in item.options">{{ option }}</option>
+          </select>
           
           <input v-else type="text" v-model.value="item.default" @change="update">
+     
+          <span v-if="item.description" class="add-on" style="width:100px; background:none; border:none;"><i>{{ item.description }}</i></span>
         </div>
         </div>
       </td>
     </tr>
     <tr>
-      <td><b><?php dgettext('lib_messages','Authentication'); ?></b></td>
+      <td><b><?php echo dgettext('lib_messages','Authentication'); ?></b></td>
       <td>
         <button v-if="!auth_visible" class="btn btn-small" @click="show_auth"><?php echo dgettext('lib_messages','Show'); ?>
+        <button v-if="auth_visible" class="btn btn-small" @click="hide_auth"><?php echo dgettext('lib_messages','Hide'); ?>
     </tr>
     <tr>
       <td><b><?php echo dgettext('lib_messages','Example URL'); ?></b></td>
@@ -115,14 +122,14 @@ $.ajax({ url: path+"feed/list.json", dataType: 'json', async: false, success: fu
 // Pre-prepare api object
 // ---------------------------------------------------------------------
 var api = <?php echo json_encode($api); ?>;
-var now = Math.round((new Date()).getTime()*0.001)*1000;
+var now = Math.round((new Date()).getTime()*0.001);
 
 for (var i in api) {
     if (api[i].response == undefined) api[i].url = "";
     if (api[i].response == undefined) api[i].response = "";
     
     for (var p in api[i].parameters) {
-        if (p=="start") api[i].parameters[p].default = now - 3600*1000;
+        if (p=="start") api[i].parameters[p].default = now - 3600;
         if (p=="end") api[i].parameters[p].default = now;
     }
 }

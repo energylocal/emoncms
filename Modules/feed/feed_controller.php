@@ -112,14 +112,22 @@ function feed_controller()
 
             $start = get('start',true);
             $end = get('end',true);
-            $default_interval = round((($end-$start)*0.001)/800);
-            $interval = get('interval',false,$default_interval);
-            $average = get('average',false,0);
+            $interval = get('interval',false,0);
             $timezone = get('timezone',false,$user_timezone);
-            $timeformat = get('timeformat',false,'unix');
+            $timeformat = get('timeformat',false,'unixms');
             $csv = get('csv',false,0);
             $skipmissing = get('skipmissing',false,0);
             $limitinterval = get('limitinterval',false,0);
+            
+            $averages = array();
+            if (isset($_GET['average'])) {
+                $averages = explode(",",get('average'));
+            }
+            
+            $deltas = array();
+            if (isset($_GET['delta'])) {
+                $deltas = explode(",",get('delta'));
+            }  
             
             // Backwards compatibility
             if ($route->action=="average") $average = 1;
@@ -134,17 +142,21 @@ function feed_controller()
             
             if (!empty($feedids)) {
                 $missing = array();
-                foreach($feedids as $key => $feedid) {
+                foreach($feedids as $index => $feedid) {
                     if ($feed->exist($feedid)) { // if the feed exists
                         $f = $feed->get($feedid);
                         // if public or belongs to user
                         if ($session["admin"] || $f['public'] || ($session['userid']>0 && $f['userid']==$session['userid'] && $session['read']))
                         {
-                            $results[$key] = array('feedid'=>$feedid);
+                            $results[$index] = array('feedid'=>$feedid);
                             if (!isset($_GET['split'])) {
-                                $results[$key]['data'] = $feed->get_data($feedid,$start,$end,$interval,$average,$timezone,$timeformat,$csv,$skipmissing,$limitinterval);
+                            
+                                if (isset($averages[$index]) && $averages[$index]) $average = $averages[$index]; else $average = 0;
+                                if (isset($deltas[$index]) && $deltas[$index]) $delta = $deltas[$index]; else $delta = 0;
+                                
+                                $results[$index]['data'] = $feed->get_data($feedid,$start,$end,$interval,$average,$timezone,$timeformat,$csv,$skipmissing,$limitinterval,$delta);
                             } else {
-                                $results[$key]['data'] = $feed->get_data_DMY_time_of_day($feedid,$start,$end,$interval,get('split'));
+                                $results[$index]['data'] = $feed->get_data_DMY_time_of_day($feedid,$start,$end,$interval,$timezone,$timeformat,get('split'));
                             }
                         }
                     } else {
@@ -225,11 +237,11 @@ function feed_controller()
                         }
 
                     // insert available here for backwards compatibility
-                    } else if ($route->action == "insert" || $route->action == "post") {
+                    } else if ($route->action == "insert" || $route->action == "update" || $route->action == "post") {
                         
                         // Single data point
                         if (isset($_GET['time']) || isset($_GET['value'])) {
-                             return $feed->insert_data($feedid,time(),get("time"),get("value"));
+                             return $feed->post($feedid,time(),get("time"),get("value"));
                         }
 
                         // Single or multiple datapoints via json format
@@ -246,18 +258,7 @@ function feed_controller()
                         
                         if (!$data || count($data)==0) return array('success'=>false, 'message'=>'empty data object');
                         
-                        foreach ($data as $dp) {
-                            if (count($dp)==2) {
-                                $feed->insert_data($feedid,$dp[0],$dp[0],$dp[1]);
-                            }
-                        }
-                        return array('success'=>true);
-
-                    // Update datapoint
-                    } else if ($route->action == "update") {
-                        if (isset($_GET['updatetime'])) $updatetime = get("updatetime"); else $updatetime = time();
-                        $skipbuffer = false; if (isset($_GET['skipbuffer'])) $skipbuffer = true;
-                        return $feed->update_data($feedid,$updatetime,get("time"),get('value'),$skipbuffer);
+                        return $feed->post_multiple($feedid,$data);
 
                     // Delete feed
                     } else if ($route->action == "delete") {

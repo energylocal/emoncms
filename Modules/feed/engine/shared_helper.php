@@ -79,7 +79,7 @@ class SharedHelper
     }
     
     public function csv_write_multi($values) {
-        $values[0] = $this->format_time($values[0]);
+        // $values[0] = $this->format_time($values[0]);
         
         for ($z=1; $z<count($values); $z++) {
             if ($values[$z]==null) {
@@ -152,15 +152,6 @@ interface engine_methods{
     */
     public function post($feedid,$feedtime,$value,$arg);
     
-    /**
-     * Updates a data point in the feed
-     *
-     * @param integer $feedid The id of the feed to add to
-     * @param integer $time The unix timestamp of the data point, in seconds
-     * @param float $value The value of the data point
-    */
-    public function update($feedid,$feedtime,$value);
-
     /**
      * Get value at specified time
      *
