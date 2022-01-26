@@ -677,7 +677,7 @@ var edit_input = new Vue({
                                     messages[inputid] = {success: true, message: response.message}
                                 }
                             })
-                            .error(function(xhr, type, error) {
+                            .fail(function(xhr, type, error) {
                                 errors[inputid] = {message: error}
                             })
                             .always(function() {
@@ -1068,7 +1068,7 @@ $(function(){
         if (DEVICE_MODULE) {
             device_dialog.loadConfig(device_templates, device);
         } else {
-            alert("Please install the device module to enable this feature");
+            alert(_("Please install the device module to enable this feature"));
         }
     });
 }) // end of jquery document ready
@@ -1125,7 +1125,7 @@ function device_configure(device){
     if (DEVICE_MODULE) {
         device_dialog.loadConfig(device_templates, device);
     } else {
-        alert("Please install the device module to enable this feature");
+        alert(_("Please install the device module to enable this feature"));
     }
 };
 

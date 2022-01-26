@@ -15,7 +15,7 @@ load_language_files("Theme/locale", "theme_messages");
 
 $q = ""; if (isset($_GET['q'])) $q = $_GET['q'];
 
-$v = 31;
+$v = 37;
 
 if (!in_array($settings["interface"]["themecolor"], ["blue","sun","yellow2","standard","copper","black","green"])) {
     $settings["interface"]["themecolor"] = "standard";
@@ -37,7 +37,9 @@ if (!in_array($settings["interface"]["themecolor"], ["blue","sun","yellow2","sta
     <link href="<?php echo $path; ?>Theme/emoncms-base.css?v=<?php echo $v; ?>" rel="stylesheet">
     <link href="<?php echo $path; ?>Lib/menu/menu.css?v=<?php echo $v; ?>" rel="stylesheet">
 
-    <script type="text/javascript" src="<?php echo $path; ?>Lib/jquery-1.11.3.min.js"></script>
+    <?php include 'Lib/menu/menu_langjs.php' ?>
+
+    <script type="text/javascript" src="<?php echo $path; ?>Lib/jquery-3.6.0.min.js"></script>
     <script type="text/javascript" src="<?php echo $path; ?>Lib/menu/menu.js?v=<?php echo $v; ?>"></script>
     <script type="text/javascript" src="<?php echo $path; ?>Lib/misc/gettext.js?v=<?php echo $v; ?>"></script>
     
@@ -47,6 +49,7 @@ if (!in_array($settings["interface"]["themecolor"], ["blue","sun","yellow2","sta
     </script>
     <script src="<?php echo $path; ?>Lib/emoncms.js?v=<?php echo $v; ?>"></script>
     <?php echo $svg_icons; // THEME ICONS ?>
+	
 </head>
 <body class="fullwidth <?php if(isset($page_classes)) echo implode(' ', $page_classes) ?>">
     <div id="wrap">
@@ -64,21 +67,21 @@ if (!in_array($settings["interface"]["themecolor"], ["blue","sun","yellow2","sta
             </a>
 
                 <ul class="dropdown-menu pull-right" style="font-size:1rem">
-                    <li><a href="<?php echo $path; ?>user/view" title="My Account" style="line-height:30px"><svg class="icon"><use xlink:href="#icon-user"></use></svg> My Account</a></li>
+                    <li><a href="<?php echo $path; ?>user/view" title="<?php echo _("My Account"); ?>" style="line-height:30px"><svg class="icon"><use xlink:href="#icon-user"></use></svg> <?php echo _("My Account"); ?></a></li>
                     <li class="divider"><a href="#"></a></li>
-                    <li><a href="<?php echo $path; ?>user/logout" title="Logout" style="line-height:30px"><svg class="icon"><use xlink:href="#icon-logout"></use></svg> Logout</a></li>
+                    <li><a href="<?php echo $path; ?>user/logout" title="<?php echo _("Logout"); ?>" style="line-height:30px"><svg class="icon"><use xlink:href="#icon-logout"></use></svg> <?php echo _("Logout"); ?></a></li>
                 </ul>
             </li>
             <?php } else { ?>
             <li>
-              <a href="<?php echo $path; ?>" title="Login">
+              <a href="<?php echo $path; ?>" title="<?php echo _("Login"); ?>">
                 <div class="tr-login"><svg class="icon enter"><use xlink:href="#icon-enter"></use></svg></div>
               </a>
             </li>
             <?php } ?>
             </ul></div>
         </div>
-        <div class="menu-l2"><div class="menu-l2-inner"><ul></ul></div><div id="menu-l2-controls"></div></div><div class="menu-l3"><ul></ul></div>
+        <div class="menu-l2"><div class="menu-l2-inner"><ul></ul></div><div id="menu-l2-controls" class="ctrl-hide"></div></div><div class="menu-l3"><ul></ul></div>
         <?php
         $contentContainerClasses[] = 'content-container';
         
@@ -91,7 +94,7 @@ if (!in_array($settings["interface"]["themecolor"], ["blue","sun","yellow2","sta
             <script>
             // Draw menu just before drawing content but after defining content-container
             var path = "<?php echo $path; ?>";
-            var q = "<?php echo $q; ?>"+location.search+location.hash;
+            var q = "<?php echo preg_replace('/[^.\/_A-Za-z0-9-]/', '', $q); ?>"+location.search+location.hash;
             menu.init(<?php echo json_encode($menu); ?>);
             </script>
             <?php echo $content; ?>
@@ -102,7 +105,7 @@ if (!in_array($settings["interface"]["themecolor"], ["blue","sun","yellow2","sta
         <span> | <a href="https://github.com/emoncms/emoncms/releases" target="_blank" rel="noopener"><?php echo $emoncms_version; ?></a></span>
     </div>
 
-    <script type="text/javascript" src="<?php echo $path; ?>Lib/bootstrap/js/bootstrap.js"></script>
+    <script type="text/javascript" src="<?php echo $path; ?>Lib/bootstrap/js/bootstrap.js?v=2"></script>
 
 <!-- ICONS --------------------------------------------- -->
 
