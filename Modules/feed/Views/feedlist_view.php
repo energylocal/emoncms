@@ -1,7 +1,7 @@
 <?php
     defined('EMONCMS_EXEC') or die('Restricted access');
     global $path, $settings;
-    $v=1;
+    $v=2;
 ?>
 
 <script type="text/javascript" src="<?php echo $path; ?>Modules/user/user.js"></script>
@@ -397,7 +397,7 @@ var selected_feeds = {};
 var local_cache_key = 'feed_nodes_display';
 var nodes_display = {};
 var feed_engines = ['MYSQL','TIMESTORE','PHPTIMESERIES','GRAPHITE','PHPTIMESTORE','PHPFINA','PHPFIWA (No longer supported)','VIRTUAL','MEMORY','REDISBUFFER','CASSANDRA'];
-var engines_hidden = JSON.parse(<?php echo json_encode($settings["feed"]['engines_hidden']); ?>);
+var engines_hidden = <?php echo json_encode($settings["feed"]['engines_hidden']); ?>;
 
 var available_intervals = <?php echo json_encode(Engine::available_intervals()); ?>;
 var tmp = []; for (var z in available_intervals) tmp.push(available_intervals[z]['interval']); available_intervals = tmp;

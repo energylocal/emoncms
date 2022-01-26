@@ -75,7 +75,7 @@ $(function(){
 });
 
 // Display alert if js error encountered
-window.onerror = function(msg, source, lineno, colno, error) {
+/*window.onerror = function(msg, source, lineno, colno, error) {
     if (_SETTINGS && !_SETTINGS.showErrors) {
         return false;
     } else {
@@ -116,7 +116,7 @@ window.onerror = function(msg, source, lineno, colno, error) {
         }
         return true; // true == prevents the firing of the default event handler.
     };
-}
+}*/
 
 /* Simple theme color switcher using localStorage */
 if (typeof localStorage !== 'undefined') {

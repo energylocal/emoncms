@@ -15,7 +15,7 @@ load_language_files("Theme/locale", "theme_messages");
 
 $q = ""; if (isset($_GET['q'])) $q = $_GET['q'];
 
-$v = 37;
+$v = 38;
 
 if (!in_array($settings["interface"]["themecolor"], ["blue","sun","yellow2","standard","copper","black","green"])) {
     $settings["interface"]["themecolor"] = "standard";
@@ -84,6 +84,17 @@ if ($l==0) unset($menu['setup']);
             </li>
             <?php } ?>
             </ul></div>
+            
+            <div class="menu-tr"><ul>
+                <li>
+                <?php if ($session['lang']=="en_GB") { ?>
+                    <a href="?lang=cy"><div style="background-color:var(--bg-menu-top)"><svg class="icon bullhorn" style="width:0.7em"><use xlink:href="#icon-bullhorn"></use></svg><span class="menu-text-l1">Cymraeg</span></div></a>
+                <?php } else { ?>
+                    <a href="?lang=en"><div style="background-color:var(--bg-menu-top)"><svg class="icon bullhorn" style="width:0.7em"><use xlink:href="#icon-bullhorn"></use></svg><span class="menu-text-l1">English</span></div></a>
+                <?php } ?>
+                </li>
+            </ul></div> 
+            
         </div>
         <div class="menu-l2"><div class="menu-l2-inner"><ul></ul></div><div id="menu-l2-controls" class="ctrl-hide"></div></div><div class="menu-l3"><ul></ul></div>
         <?php
