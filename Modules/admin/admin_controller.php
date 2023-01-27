@@ -63,7 +63,7 @@ function admin_controller()
             sprintf("%suser/logout?msg=%s&ref=%s",$path, $message, $referrer),
             _('Re-authenticate to see this page')
         );
-    }    
+    }
     
     // Everything beyond this point requires an admin session as it will otherwise fail the above check
     
@@ -75,6 +75,25 @@ function admin_controller()
         $route->format = 'html';
         unset($session["token"]);
         return view("Modules/club/app/admin_view.php",array('session'=>$session));
+    }
+    
+    if ($route->action == 'club') {
+        $route->format = 'html';
+        unset($session["token"]);
+        return view("Modules/club/app/admin_club_details.php",array('session'=>$session));
+    }
+    
+    
+    if ($route->action == 'club-list') {
+        $route->format = 'html';
+        unset($session["token"]);
+        return view("Modules/club/app/admin/club_list.php",array('session'=>$session));
+    }
+
+    if ($route->action == 'club-view') {
+        $route->format = 'html';
+        unset($session["token"]);
+        return view("Modules/club/app/admin/club_view.php",array('session'=>$session));
     }
     
     // System information view
