@@ -1,4 +1,15 @@
 <?php
+
+require_once './get-sentry/raven-php/lib/Raven/Autoloader.php';
+Raven_Autoloader::register();
+
+$client = new Raven_Client('https://e428d95e73d54c5783846911a4b42ca9@o1372356.ingest.sentry.io/6677249');
+$error_handler = new Raven_ErrorHandler($client);
+$error_handler->registerExceptionHandler();
+$error_handler->registerErrorHandler();
+$error_handler->registerShutdownFunction();
+
+
 /*
 
 All Emoncms code is released under the GNU Affero General Public License.

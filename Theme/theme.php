@@ -30,6 +30,31 @@ if ($l==0) unset($menu['setup']);
 ?>
 <html class="theme-<?php echo $settings["interface"]["themecolor"]; ?> sidebar-dark">
 <head>
+
+<script
+  src="https://browser.sentry-cdn.com/7.11.1/bundle.min.js"
+  integrity="sha384-qcYSo5+/E8hEkPmHFa79GRDsGT84SRhBJHRw3+dbQyh0UwueiFP1jCsRBClEREcs"
+  crossorigin="anonymous"
+></script>
+<script>
+Sentry.init({
+  dsn: "https://d52c76327dc4462a92de1cf0ee02da87@o1372356.ingest.sentry.io/6677248",
+
+
+  // Alternatively, use `process.env.npm_package_version` for a dynamic release version
+  // if your build tool supports it.
+ // release: "my-project-name@2.3.12",
+//  integrations: [new BrowserTracing()],
+integrations: [],
+
+  // Set tracesSampleRate to 1.0 to capture 100%
+  // of transactions for performance monitoring.
+  // We recommend adjusting this value in production
+  tracesSampleRate: 1.0,
+
+});
+</script>
+
     <meta http-equiv="content-type" content="text/html; charset=UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1">
     <title>Emoncms - <?php echo $route->controller.' '.$route->action.' '.$route->subaction; ?></title>
