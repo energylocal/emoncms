@@ -101,11 +101,17 @@ function getdp() {
         dataType: 'json',
         async: true,
         success: function(result) {
-            if (data.length == 0 || data[data.length - 1][0] != result.time * 1000) {
+            if (data.length == 0) {
                 data.push([result.time * 1000, parseFloat(result.value)]);
             }
-            if (data.length > 0 && data[1] && data[1][0] < (start)) data.splice(0, 1);
-            data.sort();
+            else if (data.length>0) {
+                if (data[data.length - 1][0] != result.time * 1000) {
+                    data.push([result.time * 1000, parseFloat(result.value)]);
+                }
+                
+                if (data[1] && data[1][0] < (start)) data.splice(0, 1);
+                data.sort();
+            }
         }
     });
 }
@@ -164,6 +170,7 @@ $('.viewWindow').click(function() {
     console.log("realtime timewindow " + timeWindow / 1000 + "s get rate " + rate / 1000 + "s");
 
     interval = parseInt(((end * 0.001 + 10) - (start * 0.001 - 10)) / 800);
+    if (interval<1) interval = 1;
     data = feed.getdata(feedid, (start - 10000), (end + 10000), interval, 0, 0, 1, 1);
 });
 </script>
