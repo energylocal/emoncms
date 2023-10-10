@@ -171,10 +171,10 @@ class MysqlTimeSeries implements engine_methods
      * @param integer $feedid The id of the feed to add to
      * @param integer $time The unix timestamp of the data point, in seconds
      * @param float $value The value of the data point
-     * @param array arg $value optional padding mode argument
+     * @param array padding_mode $value optional padding mode argument
      * $feedname, $time and $value are all typecased in feed->insert and feed->update
     */
-    public function post($feedid, $time, $value, $arg=null)
+    public function post($feedid, $time, $value, $padding_mode=null)
     {
         $table = $this->get_table_name(intval($feedid));
         $this->mysqli->query("INSERT INTO $table (time,data) VALUES ('$time','$value') ON DUPLICATE KEY UPDATE data=VALUES(data)");
@@ -264,6 +264,7 @@ class MysqlTimeSeries implements engine_methods
         {
             // Start time of interval/division
             $div_start = $time;
+            $timestamp = $div_start;
             
             // calculate start of next interval 
             $div_end = $time + $interval;
@@ -271,15 +272,18 @@ class MysqlTimeSeries implements engine_methods
             $value = null;
             $stmt->execute();
             if ($stmt->fetch() && $data_value !== null) {
+                if ($limitinterval==2) {
+                    $timestamp = $data_time;
+                }  
                 $value = (float) $data_value;
             }
             
             if ($value!==null || $skipmissing===0) {                
                 // Write as csv or array
                 if ($csv) { 
-                    $helperclass->csv_write($div_start,$value);
+                    $helperclass->csv_write($timestamp,$value);
                 } else {
-                    $data[] = array($div_start,$value);
+                    $data[] = array($timestamp,$value);
                 } 
             }
 
@@ -637,10 +641,10 @@ class MysqlTimeSeries implements engine_methods
 // #### \/ Below are buffer write methods
 
     // Insert data in post buffer
-    public function post_bulk_prepare($feedid,$time,$value,$arg=null)
+    public function post_bulk_prepare($feedid,$time,$value,$padding_mode=null)
     {
         $this->writebuffer[(int)$feedid][] = array((int)$time,$value);
-        //$this->log->info("post_bulk_prepare() $feedid, $time, $value, $arg");
+        //$this->log->info("post_bulk_prepare() $feedid, $time, $value, $padding_mode");
     }
 
     // Saves post buffer to mysql feed_table, performing bulk inserts instead of an insert for each point

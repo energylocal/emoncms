@@ -1,6 +1,6 @@
 <?php
 global $session;
-if ($session["admin"]) {
+if ($session["write"] && $session["admin"]) {
     $menu['setup']['l2']['admin'] = array(
         'name' => _("Admin"),
         'href' => 'admin',
@@ -30,6 +30,12 @@ if ($session["admin"]) {
             "firmware"=>array(
                 "name"=>_("Serial Monitor"),
                 "href"=>"admin/serial", 
+                "order"=>1, 
+                "icon"=>"input"
+            ),
+            "serialconfig"=>array(
+                "name"=>_("Serial Config"),
+                "href"=>"admin/serconfig", 
                 "order"=>1, 
                 "icon"=>"input"
             ),
