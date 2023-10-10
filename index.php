@@ -409,7 +409,7 @@ if ($route->format == 'json') {
         // Pass menu through to output view - passed on the js based builder
         
         // Hide menu if nothing to see
-        if (!$menu["setup"]["l2"]) $menu = array();
+        // if (!$menu["setup"]["l2"]) $menu = array();
         
         $output['menu'] = $menu;
         
