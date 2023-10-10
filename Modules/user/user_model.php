@@ -412,20 +412,20 @@ class User
 
         if ($hash != $userData->password)
         {
-            $this->log->error("Login: Incorrect password username:$username ip:".get_client_ip_env());
+            $this->log->error("Login: Incorrect password username:$username_or_email ip:".get_client_ip_env());
             return array('success'=>false, 'message'=>_("Incorrect password"));
         }
         else
         {
             //--------------------------------------------------------------------
             include "Modules/remoteaccess/remoteaccess_userlink.php";
-            $result = remoteaccess_userlink_existing($this->mysqli,$userData_id);
+            $result = remoteaccess_userlink_existing($this->mysqli,$userid);
             if (!isset($result["success"]) || !$result["success"]) return $result;
             //--------------------------------------------------------------------
             
             session_regenerate_id();
             $_SESSION['userid'] = $userData->id;
-            $_SESSION['username'] = $username;
+            $_SESSION['username'] = $userData->username;
             $_SESSION['password'] = $password;
             $_SESSION['read'] = 1;
             $_SESSION['write'] = 1;
