@@ -115,7 +115,12 @@ class MysqlTimeSeries implements engine_methods
             $meta->end_time = 0;
         }
        
-        $result = $this->mysqli->query("SELECT COUNT(*) FROM ".$meta->table_name);
+        try {       
+            $result = $this->mysqli->query("SELECT COUNT(*) FROM ".$meta->table_name);
+        } catch (Exception $e) {
+            return false;
+        }
+        
         if ($result && $row = $result->fetch_array()) {
             $meta->npoints = (int) $row[0];
         } else {
@@ -188,8 +193,11 @@ class MysqlTimeSeries implements engine_methods
     public function lastvalue($feedid)
     {
         $table = $this->get_table_name(intval($feedid));
-
-        $result = $this->mysqli->query("SELECT time, data FROM $table ORDER BY time Desc LIMIT 1");
+        try {
+            $result = $this->mysqli->query("SELECT time, data FROM $table ORDER BY time Desc LIMIT 1");
+        } catch (Exception $e) {
+            return false;
+        }
         if ($result && $row = $result->fetch_array()) {
             if ($row['data'] !== null) $row['data'] = (float) $row['data'];
             return array('time'=>(int)$row['time'], 'value'=>$row['data']);

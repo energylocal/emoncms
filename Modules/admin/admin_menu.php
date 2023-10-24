@@ -59,4 +59,9 @@ if ($session["write"] && $session["admin"]) {
             )
         )
     );
+    $menu["setup"]["l2"]['divider2'] = array(
+        "divider"=>"15px",
+        "href"=>'',
+        "order"=>13
+    );
 }

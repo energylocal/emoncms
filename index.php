@@ -253,8 +253,15 @@ if ($route->controller == 'input' && $route->action == 'bulk') {
 
 if ($route->controller == 'cydynni') $route->controller = 'club';
 
+
 // default club
 $club = "bethesda";
+
+$result = $mysqli->query("SELECT `key` FROM club");
+$available_clubs = array();
+while ($row = $result->fetch_object()) {
+    $available_clubs[] = $row->key;
+}
 
 // load club from controller
 if (in_array($route->controller,$available_clubs)) {
