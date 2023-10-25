@@ -788,6 +788,35 @@ class User
     // Special methods
     //---------------------------------------------------------------------------------------
 
+    public function get_attributes(int $userid) {
+        $result = $this->mysqli->query("SELECT name, value FROM user_attributes WHERE userid = $userid");
+        
+        if ($result === false) {
+            // Handle the query error here
+            return false;
+        }
+    
+        $attributes = new stdClass(); // Create an empty object
+    
+        while ($row = $result->fetch_assoc()) {
+            $attributes->{$row['name']} = json_decode($row['value']); // Use name as the key
+        }
+    
+        return $attributes;
+    }
+
+    public function set_attribute(int $userid, string $name, $value) {        
+        $stmt = $this->mysqli->prepare("INSERT INTO user_attributes (userid, name, value) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE userid=?, name=?, value=?;");
+        $j = json_encode($value);
+        $stmt->bind_param("ississ", $userid, $name, $j, $userid, $name, $j);
+        if (!$stmt->execute()) {
+            $stmt->close();
+            return array('success'=>false, 'message'=>_("Error updating user attribute"));
+        }
+        $stmt->close();
+        return array('success'=>true);
+    }
+    
     public function get($userid)
     {
         $userid = (int) $userid;

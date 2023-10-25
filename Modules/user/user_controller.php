@@ -101,6 +101,15 @@ function user_controller()
         // Get and set - user by profile client
         if ($route->action == 'get' && $session['write']) $result = $user->get($session['userid']);
         if ($route->action == 'set' && $session['write']) $result = $user->set($session['userid'],json_decode(post('data')));
+        if ($route->action == 'getattributes' && $session['write']) $result = $user->get_attributes($session['userid']);
+        if ($route->action == 'setattribute' && $session['write']) {
+            // require "Lib/EmonLogger.php";
+           // $log = new EmonLogger(__FILE__);
+            //$log->error("putting attr");
+            $body = put_json();
+            $result = $user->set_attribute($session['userid'], $body['name'], $body['value']);
+            return array('content'=>$result);
+        }
 
         if ($route->action == 'timezone' && $session['read']) $result = $user->get_timezone_offset($session['userid']); // to maintain compatibility but in seconds
         if ($route->action == 'gettimezone' && $session['read']) $result = $user->get_timezone($session['userid']);

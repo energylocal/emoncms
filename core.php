@@ -208,6 +208,34 @@ function delete($index)
     }
     return $val;
 }
+function put_json() {
+    // Check if the request method is PUT
+    if ($_SERVER['REQUEST_METHOD'] !== 'PUT') {
+        header("HTTP/1.0 405 Method Not Allowed");
+        exit("PUT method is required for this operation.");
+    }
+
+    // Read the request body
+    $json_data = file_get_contents("php://input");
+
+    // Check if the data is empty
+    if (empty($json_data)) {
+        header("HTTP/1.0 400 Bad Request");
+        exit("No JSON data found in the request body.");
+    }
+
+    // Attempt to parse the JSON data
+    $parsed_data = json_decode($json_data, true);
+
+    // Check for JSON parsing errors
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        header("HTTP/1.0 400 Bad Request");
+        exit("Invalid JSON data: " . json_last_error_msg());
+    }
+
+    // At this point, $parsed_data contains the parsed JSON data
+    return $parsed_data;
+}
 function put($index)
 {
     parse_str(file_get_contents("php://input"), $_PUT);//create array with posted (PUT method) values
