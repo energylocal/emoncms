@@ -127,9 +127,9 @@ integrations: [],
             <div class="menu-tr"><ul>
                 <li>
                 <?php if ($session['lang']=="en_GB") { ?>
-                    <a href="?lang=cy"><div style="background-color:var(--bg-menu-top)"><svg class="icon bullhorn" style="width:0.7em"><use xlink:href="#icon-bullhorn"></use></svg><span class="menu-text-l1">Cymraeg</span></div></a>
+                    <a id="lang-link-cy" href="?lang=cy"><div style="background-color:var(--bg-menu-top)"><svg class="icon bullhorn" style="width:0.7em"><use xlink:href="#icon-bullhorn"></use></svg><span class="menu-text-l1">Cymraeg</span></div></a>
                 <?php } else { ?>
-                    <a href="?lang=en"><div style="background-color:var(--bg-menu-top)"><svg class="icon bullhorn" style="width:0.7em"><use xlink:href="#icon-bullhorn"></use></svg><span class="menu-text-l1">English</span></div></a>
+                    <a id="lang-link-en" href="?lang=en"><div style="background-color:var(--bg-menu-top)"><svg class="icon bullhorn" style="width:0.7em"><use xlink:href="#icon-bullhorn"></use></svg><span class="menu-text-l1">English</span></div></a>
                 <?php } ?>
                 </li>
             </ul></div> 
