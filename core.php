@@ -23,6 +23,9 @@ function is_https() {
     } elseif (server('HTTP_X_FORWARDED_PROTO') == "https") {
         // Web server is running behind a proxy which is running HTTPS
         return true;
+    } elseif (server('HTTP_X_FORWARDED_PORT') == 443) {
+        // Web server is running behind a proxy which is running HTTPS
+        return true;   
     } elseif (request_header('HTTP_X_FORWARDED_PROTO') == "https") {
         return true;
     }
@@ -76,6 +79,9 @@ function controller($controller_name)
             if (!is_array($output) || !isset($output["content"])) {
                 $output = array("content"=>$output);
             }
+            $output['is_controller'] = true;
+        } else {
+            $output['is_controller'] = false;
         }
     }
     return $output;
@@ -109,8 +115,9 @@ function get($index,$error_if_missing=false,$default=null)
         header('Content-Type: text/plain');
         die("missing $index parameter");
     }
-    
-    $val = stripslashes($val);
+    if(!is_null($val)){
+        $val = stripslashes($val);
+    }
     return $val;
 }
 /**
@@ -127,21 +134,19 @@ function post($index,$error_if_missing=false,$default=null)
         if (!is_array($_POST[$index])) {
             $val = rawurldecode($_POST[$index]); // does not decode the plus symbol into spaces
         } else {
-            // sanitize the array values
-            $SANTIZED_POST  = filter_input_array(INPUT_POST, FILTER_SANITIZE_STRING);
-            if (!empty($SANTIZED_POST[$index])) {
-                $val = $SANTIZED_POST[$index];
-            }
+            $val = htmlspecialchars(json_encode($_POST[$index]));
         }
     } else if ($error_if_missing) {
         header('Content-Type: text/plain');
         die("missing $index parameter");
     }
     
-    if (is_array($val)) {
-        $val = array_map("stripslashes", $val);
-    } else {
-        $val = stripslashes($val);
+    if(!is_null($val)) {
+        if (is_array($val)) {
+            $val = array_map("stripslashes", $val);
+        }	else {
+            $val = stripslashes($val);
+        }
     }
     return $val;
 }
@@ -165,10 +170,12 @@ function prop($index,$error_if_missing=false,$default=null)
         die("missing $index parameter");
     }
     
-    if (is_array($val)) {
-        $val = array_map("stripslashes", $val);
-    } else {
-        $val = stripslashes($val);
+    if(!is_null($val)) {
+        if (is_array($val)) {
+            $val = array_map("stripslashes", $val);
+        }	else {
+            $val = stripslashes($val);
+        }
     }
     return $val;
 }

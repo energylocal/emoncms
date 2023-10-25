@@ -75,11 +75,11 @@ class Admin {
 
     public function firmware_available() {
         $localfile = $this->settings['openenergymonitor_dir']."/EmonScripts/firmware_available.json";
-        if (file_exists($localfile)) {
-            return json_decode(file_get_contents($localfile));
-        }
-        else if ($response = @file_get_contents("https://raw.githubusercontent.com/openenergymonitor/EmonScripts/stable/firmware_available.json")) {
+        if ($response = @file_get_contents("https://raw.githubusercontent.com/openenergymonitor/EmonScripts/master/firmware_available.json?v=".time())) {
             return json_decode($response);
+        }
+        else if (file_exists($localfile)) {
+            return json_decode(file_get_contents($localfile));
         }
         return array('success'=>false, 'message'=>"Can't get firmware available file");
     }
@@ -103,7 +103,8 @@ class Admin {
                     'loadstate' => ucfirst($value['LoadState']),
                     'state' => ucfirst($value['ActiveState']),
                     'text' => ucfirst($value['SubState']),
-                    'running' => $value['SubState']==='running'
+                    'running' => $value['SubState']==='running',
+                    'unitfilestate' => isset($value['UnitFileState'])?$value['UnitFileState']:false
                 );
                 
                 // Set 'cssClass' based on service's configuration and current status
@@ -182,17 +183,13 @@ class Admin {
             $parts = explode('=',$line);
             $status[$parts[0]] = $parts[1];
         }
-        if (    isset($status["ActiveState"]) &&
-                isset($status["SubState"]) &&
-                isset($status["LoadState"])
-                ) {
-            return array(
-                'ActiveState' => $status["ActiveState"],
-                'SubState' => $status["SubState"],
-                'LoadState' => $status["LoadState"]
-            );
-        } else {
-            $return = array();
+        
+        $return = array();
+        $keys = array("LoadState","ActiveState","SubState","UnitFileState");
+        foreach ($keys as $key) {
+            if (isset($status[$key])) {
+                $return[$key] = $status[$key];
+            }
         }
         return $return;
     }
@@ -545,7 +542,7 @@ class Admin {
             $prefix = $this->redis->getOption(Redis::OPT_PREFIX);
             $this->redis->del(array_map(
                 function ($key) use ($prefix) {
-                    return preg_replace( "/^${prefix}/", '', $key );
+                    return preg_replace( "/^{$prefix}/", '', $key );
                 }, $this->redis->keys('diskstats*'))
             );
             return array('success'=>true);
@@ -576,7 +573,7 @@ class Admin {
      * @return bool
      */
     public function is_Pi() {
-        return !empty($this->exec('ip addr | grep -i "b8:27:eb:\|dc:a6:32:"'));
+        return !empty($this->exec('ip addr | grep -i "b8:27:eb:\|dc:a6:32:\|28:cd:c1:\|e4:5f:01:"'));
     }
 
     /**
