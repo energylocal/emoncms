@@ -1,6 +1,6 @@
 <?php
 global $session;
-if ($session["admin"]) {
+if ($session["write"] && $session["admin"]) {
     $menu['setup']['l2']['admin'] = array(
         'name' => _("Admin"),
         'href' => 'admin',
@@ -33,6 +33,12 @@ if ($session["admin"]) {
                 "order"=>1, 
                 "icon"=>"input"
             ),
+            "serialconfig"=>array(
+                "name"=>_("Serial Config"),
+                "href"=>"admin/serconfig", 
+                "order"=>1, 
+                "icon"=>"input"
+            ),
             "log"=>array(
                 "name"=>_("Emoncms Log"),
                 "href"=>"admin/log", 
@@ -52,5 +58,10 @@ if ($session["admin"]) {
                 "icon"=>"input"
             )
         )
+    );
+    $menu["setup"]["l2"]['divider2'] = array(
+        "divider"=>"15px",
+        "href"=>'',
+        "order"=>13
     );
 }

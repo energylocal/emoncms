@@ -19,7 +19,13 @@ $config['units'] = array(
     array("short" => "Hz", "long" => "Hertz"),
     array("short" => "pulses", "long" => "Pulses"),
     array("short" => "dB", "long" => "Decibel"),
-    array("short" => "hPa", "long" => "Hectopascal")
+    array("short" => "hPa", "long" => "Hectopascal"),
+    array("short" => "ppm", "long" => "Parts per million"),
+    array("short" => "µg/m³", "long" => "micro grams per m3"),
+    array("short" => "m³", "long" => "m3"),
+    array("short" => "m³/h", "long" => "m3/hr"),
+    array("short" => "l/m", "long" => "liters/minute"),
+    array("short" => "l/h", "long" => "liters/hour")
 );
 // list of PHP includes
 $includes = get_included_files();

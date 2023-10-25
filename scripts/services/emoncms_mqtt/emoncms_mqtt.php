@@ -151,10 +151,23 @@
                 $mqtt_client->setCredentials($settings['mqtt']['user'],$settings['mqtt']['password']);
                 if(isset($settings['mqtt']['capath']) && $settings['mqtt']['capath'] !== null) {
                     $log->warn("mqtt: using ssl");
-                    $mqtt_client->setTlsCertificates($settings['mqtt']['capath'],
-                                                     $settings['mqtt']['certpath'],
-                                                     $settings['mqtt']['keypath'],
-                                                     $settings['mqtt']['keypw']);
+                    if(isset($settings['mqtt']['certpath']) && $settings['mqtt']['certpath'] !== null && isset($settings['mqtt']['keypath']) && $settings['mqtt']['keypath'] !== null) {
+                        if(isset($settings['mqtt']['keypw']) && $settings['mqtt']['keypw'] !== null) {
+                            // To run setTlsCertificates with capath, certpath, keypath and keypw if they are provided
+                            $mqtt_client->setTlsCertificates($settings['mqtt']['capath'],
+                                                             $settings['mqtt']['certpath'],
+                                                             $settings['mqtt']['keypath'],
+                                                             $settings['mqtt']['keypw']);
+                        } else {
+                            // To run setTlsCertificates with capath, certpath and keypath if they are provided and not keypw
+                            $mqtt_client->setTlsCertificates($settings['mqtt']['capath'],
+                                                             $settings['mqtt']['certpath'],
+                                                             $settings['mqtt']['keypath']);
+                        }
+                    } else {
+                        // To run setTlsCertificates with capath only, if nothing else is provided
+                        $mqtt_client->setTlsCertificates($settings['mqtt']['capath']);
+                    }
                 }
                 $mqtt_client->connect($settings['mqtt']['host'], $settings['mqtt']['port'], 5);
                 // moved subscribe to onConnect callback
@@ -167,7 +180,7 @@
 
         // PUBLISH
         // loop through all queued items in redis
-        if ($connected && $pub_count>10) {
+        if ($redis !== false && $connected && $pub_count>10) {
             $pub_count = 0;
             $publish_to_mqtt = $redis->hgetall("publish_to_mqtt");
             foreach ($publish_to_mqtt as $topic=>$value) {
@@ -374,6 +387,8 @@
                 $nodeid = $i['nodeid'];
                 $name = $i['name'];
                 $value = $i['value'];
+                
+                if (!is_numeric($value)) $value = null;
                 
                 if ($settings["mqtt"]["multiuser"]) {
                     $process->timezone = $user->get_timezone($userid);
