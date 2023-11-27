@@ -271,14 +271,13 @@ if (in_array($route->controller,$available_clubs)) {
 
 // load club from session
 if ($route->controller=="club" && $session["read"]) {
-    $result = $mysqli->query("SELECT clubs_id FROM cydynni WHERE `userid`='".$session['userid']."'");
+    $stmt = $mysqli->prepare("SELECT `key` FROM club INNER JOIN cydynni cy ON cy.clubs_id=club.id WHERE cy.userid=?");
+    $stmt->bind_param("i", $session['userid']);
+    $stmt->execute();
+    $result = $stmt->get_result();
     if ($row = $result->fetch_object()) {
-        $club_id = $row->clubs_id-1;
-        if (isset($available_clubs[$club_id])) {
-            $club = $available_clubs[$club_id];
-        }
+        $club = $row->key;
     }
-    $result = false;
 }
 
 // -----------------------------------------------------------------------------------------
