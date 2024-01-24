@@ -33,13 +33,15 @@ if (isset($menu['setup'])) {
 <html class="theme-<?php echo $settings["interface"]["themecolor"]; ?> sidebar-dark">
 <head>
 
+<?php if ($settings["sentry"]) { ?>
 <script
   src="https://browser.sentry-cdn.com/7.11.1/bundle.min.js"
   integrity="sha384-qcYSo5+/E8hEkPmHFa79GRDsGT84SRhBJHRw3+dbQyh0UwueiFP1jCsRBClEREcs"
   crossorigin="anonymous"
 ></script>
+
 <script>
-Sentry.init({
+/*Sentry.init({
   dsn: "https://d52c76327dc4462a92de1cf0ee02da87@o1372356.ingest.sentry.io/6677248",
 
 
@@ -54,8 +56,9 @@ integrations: [],
   // We recommend adjusting this value in production
   tracesSampleRate: 1.0,
 
-});
+});*/
 </script>
+<?php } ?>
 
     <meta http-equiv="content-type" content="text/html; charset=UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1">
