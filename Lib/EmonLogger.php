@@ -41,7 +41,7 @@ class EmonLogger
             if (!file_exists($this->logfile)) {
                 $fh = @fopen($this->logfile, "a");
                 if (!$fh) {
-                   error_log("Log file could not be created");
+                   error_log("Log file ".$this->logfile." could not be created");
                 } else {
                    @fclose($fh);
                 }
