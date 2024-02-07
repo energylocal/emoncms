@@ -36,10 +36,17 @@ class Email
             $from[$settings['smtp']['from_email']] = $settings['smtp']['from_name'];
             $this->message->setFrom($from);
         }
+
     }
 
     function check()
     {
+        global $settings;
+        // if dev mode is enabled, we bypass swiftmailer check
+        if ($settings["dev"]) {
+            $this->log->error("[DEV] Swiftmailer check attempted and bypassed.");
+            return true;
+        }
         if (!$this->have_swift) {
             $this->log->error("check() Could not find SwiftMailer, email functions are ignored.");
             return false;
@@ -56,6 +63,12 @@ class Email
 
     function to($to)
     {
+        // if dev mode is enabled, we replicate the log message without acting
+        global $settings;
+        if ($settings["dev"]) {
+            $this->log->error("[DEV] Recipient set to: {$to}");
+            return;
+        }
         if ($this->check()) {
             $this->message->setTo($to);
         }
@@ -76,6 +89,12 @@ class Email
 
     function subject($subject)
     {
+        // if dev mode is enabled, we replicate the log message without acting
+        global $settings;
+        if ($settings["dev"]) {
+            $this->log->error("[DEV] Subject set to: {$subject}");
+            return;
+        }
         if ($this->check()) {
             $this->message->setSubject($subject);
         }
@@ -83,6 +102,12 @@ class Email
 
     function body($body, $type = 'text/html')
     {
+        // if dev mode is enabled, we replicate the log message without acting
+        global $settings;
+        if ($settings["dev"]) {
+            $this->log->error("[DEV] Body set to: {$body}");
+            return;
+        }
         if ($this->check()) {
             $this->message->setBody($body, $type);
         }
@@ -97,7 +122,12 @@ class Email
 
     function send()
     {
+        // if dev mode is enabled, we replicate the log message and return without acting
         global $settings;
+        if ($settings["dev"]) {
+            $this->log->error("[DEV] Email send attempted and bypassed");
+            return array('success'=>true, 'message'=>"");
+        }
         if ($this->check()) {
             try {
                 if  ($settings['smtp']['sendmail']) {
