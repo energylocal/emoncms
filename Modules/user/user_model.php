@@ -531,11 +531,23 @@ class User
         }
     }
 
-    public function passwordreset($username,$emailto)
-    {
+    public function passwordreset_generation($username, $emailto, $base_url) {
+        // cleaning up expired tokens from database
+        $stmt = $this->mysqli->prepare("DELETE FROM password_reset_tokens WHERE expiry_time < NOW()");
+        $stmt->execute();
+        $stmt->close();
+        
+        if (is_array($username)) {
+            if ($username['user_not_found']) {
+                return array('success'=>false, 'message'=>"Invalid username or email.", 'reset_disabled'=>false, 'invalid_user_email'=>true);
+            }
+        }
+        // sanitize username
         $username_out = preg_replace('/[^\p{N}\p{L}_\s\-]/u','',$username);
+        // validate email format
         if (!filter_var($emailto, FILTER_VALIDATE_EMAIL)) return array('success'=>false, 'message'=>_("Email address format error"));
 
+        // check that there is a match for username + email
         $stmt = $this->mysqli->prepare("SELECT id FROM users WHERE username=? AND email=?");
         $stmt->bind_param("ss",$username_out,$emailto);
         $stmt->execute();
@@ -543,45 +555,114 @@ class User
         $stmt->fetch();
         $stmt->close();
         
-        if ($userid!==false && $userid>0)
-        {
-            global $settings;
-            if ($settings["interface"]["enable_password_reset"]==true)
-            {
-                // Generate new random password
-                $newpass = hash('sha256',generate_secure_key(32));
+        // check that password reset is enabled
+        global $settings;
+        if (!$settings["interface"]["enable_password_reset"]) {
+            return array('success'=>false, 'message'=>"Password reset disabled.", 'reset_disabled'=>true, 'invalid_user_email'=>false);
+        }
 
-                // Hash and salt
-                $hash = hash('sha256', $newpass);
-                $salt = generate_secure_key(16);
-                $password = hash('sha256', $salt . $hash);
-                
-                // Sent email with $newpass to $email
-                require "Lib/email.php";
-                $email = new Email();
-                $email->to($emailto);
-                $email->subject(ucfirst($this->appname).' password reset');
-                $email->body("<p>A password reset was requested for your ".$this->appname." account.</p><p>You can now login with password: $newpass </p>");
-                $result = $email->send();
-                if (!$result['success']) {
-                    return array('success'=>false, 'message'=>$result['message']);
-                    $this->log->error("Email send returned error. emailto=" . $emailto . " message='" . $result['message'] . "'");
-                } else {
-                    $this->log->info("Email sent to $emailto");
-                    // Save password and salt
-                    $stmt = $this->mysqli->prepare("UPDATE users SET password = ?, salt = ? WHERE id = ?");
-                    $stmt->bind_param("ssi", $password, $salt, $userid);
-                    $stmt->execute();
-                    $stmt->close();
-                    return array('success'=>true, 'message'=>"Password recovery email sent!");
-                }                
+
+        // base URL for password reset
+        $base_url = $base_url . "&reset=";
+        // generate random token
+        $token = hash('sha256',generate_secure_key(32));
+        
+        // send email with reset link to $emailto
+        require "Lib/email.php";
+        $email = new Email();
+        $email->to($emailto);
+        $email->subject(ucfirst($this->appname).' password reset');
+        $email->body("<p>A password reset was requested for your ".$this->appname." account.</p><p>You can now set a new password at the following link: " . $base_url . $token . "</p>");
+        $result = $email->send();
+        if (!$result['success']) {
+            $this->log->error("Email send returned error. emailto=" . $emailto . " message='" . $result['message'] . "'");
+            return array('success'=>false, 'message'=>$result['message']);
+        } 
+
+        $this->log->info("Email sent to $emailto");
+        // add user id, token and token expiry time to database
+        $stmt = $this->mysqli->prepare("INSERT INTO password_reset_tokens (userid, token, expiry_time) VALUES (?, ?, NOW() + INTERVAL 1 HOUR)");
+        $stmt->bind_param("is",$userid,$token);
+        $stmt->execute();
+        $stmt->close();
+        return array('success'=>true, 'message'=>"Password recovery email sent!", 'reset_disabled'=>false, 'invalid_user_email'=>false);          
+
+    }
+
+    public function passwordreset_check_token($token) {
+        // check that the token is valid and has not expired
+        $stmt = $this->mysqli->prepare("SELECT userid, (expiry_time > NOW()) AS valid FROM password_reset_tokens WHERE token=?");
+        $stmt->bind_param("s",$token);
+        $stmt->execute();
+        $stmt->bind_result($userid, $token_validity);
+        $stmt->fetch(); 
+        // if token is valid, return user id
+        if ($userid!==false && $userid>0 && $token_validity == 1) {
+            $stmt->close();
+            return array('success'=>true, 'user_id'=>$userid, 'message'=>"Token found!", 'token_exists'=>true, 'token_expired'=>false);
+        // if token is not found, repeat search without checking expiry time to see if the token has expired
+        } 
+        if ($userid!==false && $userid>0 && $token_validity == 0) {
+            $stmt->close();
+            return array('success'=>false, 'message'=>"Token expired!", 'token_exists'=>true, 'token_expired'=>true);
+        }
+            // if token still isn't found, it was never a valid token
+        $stmt->close();
+        return array('success'=>false, 'message'=>"Token not found for this user!", 'token_exists'=>false, 'token_expired'=>false);
+    }
+
+    public function passwordreset_reset($token, $new_password) {
+        // check again that the token is valid and has not expired
+        $stmt = $this->mysqli->prepare("SELECT userid FROM password_reset_tokens WHERE token=? AND expiry_time > NOW()");
+        $stmt->bind_param("s",$token);
+        $stmt->execute();
+        $stmt->bind_result($user_id);
+        $stmt->fetch();
+        error_log("user_id".$user_id);
+        $stmt->close();
+        // if token is valid
+        if ($user_id!==false && $user_id>0) {
+            // generating hash/salt/password from supplied new password
+            $hash = hash('sha256', $new_password);
+            $salt = generate_secure_key(16);
+            $password = hash('sha256', $salt . $hash);
+            
+            // checking that their current password is not the same as their new password
+            $stmt = $this->mysqli->prepare("SELECT salt FROM users WHERE id=?");
+            $stmt->bind_param("i", $user_id);
+            $stmt->execute();
+            $stmt->bind_result($old_salt);
+            $stmt->fetch();
+            $stmt->close();
+            // use old salt with new password to check that old password isn't being reused
+            $password_check = hash('sha256', $old_salt . $hash);
+            $stmt = $this->mysqli->prepare("SELECT id FROM users WHERE id=? AND password=?");
+            $stmt->bind_param("is", $user_id, $password_check);
+            $stmt->execute();
+            $stmt->bind_result($duplicate_check);
+            $stmt->fetch();
+            // if their new password is the same as their current password, send a message back to the frontend so that the user can try again
+            if ($duplicate_check!==false && $duplicate_check>0) {
+                return array('success'=>false, 'message'=>"Duplicate password!", 'duplicate'=>true);
             } else {
-                return array('success'=>false, 'message'=>"Password reset disabled");
-            }
+                // change password and salt for specified user
+                $stmt = $this->mysqli->prepare("UPDATE users SET password = ?, salt = ? WHERE id = ?");
+                $stmt->bind_param("ssi", $password, $salt, $user_id);
+                $stmt->execute();
+                $stmt->close();
+                // delete the now used reset token
+                $stmt = $this->mysqli->prepare("DELETE FROM password_reset_tokens WHERE token = ?");
+                $stmt->bind_param("s", $token);
+                $stmt->execute();
+                $stmt->close();
+                return array('success'=>true, 'message'=>"Password changed!");
+            }   
+
         } else {
-            return array('success'=>false, 'message'=>"Invalid username or email");
+            return array('success'=>false, 'message'=>"Token not found!", 'duplicate'=>false);
         }
     }
+    
 
     public function change_username($userid, $username)
     {
@@ -894,10 +975,23 @@ class User
         $row = $result->fetch_row();
         return $row[0];
     }
+
+    public function get_email_by_username($username) {
+        $stmt = $this->mysqli->prepare("SELECT email FROM users WHERE username=?");
+        $stmt->bind_param("s", $username);
+        $stmt->execute();
+        $stmt->bind_result($email);
+        $stmt->fetch();
+        $stmt->close();
+        if ($email == "") {
+            throw new InvalidUserException("No email found for ".$username);
+        }
+        return $email;
+    }
     
     public function get_usernames_by_email($email) {
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) return false;
-        $stmt = $this->mysqli->prepare("SELECT id,username FROM users WHERE email = ?");
+        $stmt = $this->mysqli->prepare("SELECT id, username FROM users WHERE email=?");
         $stmt->bind_param("s", $email);
         $stmt->execute();        
         $stmt->bind_result($id,$username);
@@ -907,7 +1001,11 @@ class User
             $users[] = array("id"=>$id,"username"=>$username);
         }
         $stmt->close();
-        
+
+        if (empty($users)) {
+            throw new InvalidUserException("No usernames associated with ".$email);
+	}
+	
         return $users;
     }
     /**
@@ -921,3 +1019,6 @@ class User
     }
 }
 
+class InvalidUserException extends Exception {
+
+}
