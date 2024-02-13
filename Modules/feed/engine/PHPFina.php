@@ -124,7 +124,7 @@ class PHPFina implements engine_methods
         }
 
         if ($meta->start_time>0 && $meta->npoints==0) {
-            $this->log->warn("PHPFina:get_meta start_time already defined but npoints is 0");
+            $this->log->warn("PHPFina:get_meta start_time already defined but npoints is 0 for feed $id");
             return false;
         }
         
