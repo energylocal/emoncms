@@ -546,47 +546,46 @@ created using a library called table.js developed as part of this project.
     </div>
 
     <script>
+         var path = "<?php echo $path; ?>";
+         
+         // Extend table library field types
+         for (z in customtablefields) {
+            table.fieldtypes[z] = customtablefields[z];
+         }
 
-      var path = "<?php echo $path; ?>";
+         table.element = "#table";
 
-      // Extend table library field types
-      for (z in customtablefields) table.fieldtypes[z] = customtablefields[z];
+         table.fields = {
+            'id':{'type':"fixed"},
+            'name':{'type':"text"},
+            // Actions
+            'edit-action':{'title':'', 'type':"edit"},
+            'delete-action':{'title':'', 'type':"delete"},
+            'view-action':{'title':'', 'type':"iconlink", 'link':path+"vis/auto?feedid="}
+         }
 
-      table.element = "#table";
-
-      table.fields = {
-        'id':{'type':"fixed"},
-        'name':{'type':"text"},
-
-        // Actions
-        'edit-action':{'title':'', 'type':"edit"},
-        'delete-action':{'title':'', 'type':"delete"},
-        'view-action':{'title':'', 'type':"iconlink", 'link':path+"vis/auto?feedid="}
-
-      }
-
-      update();
-
-      function update()
-      {
-        table.data = feed.select();
-        table.draw();
-      }
-
-      var updater = setInterval(update, 5000);
-
-      $("#table").bind("onEdit", function(e){
-        clearInterval(updater);
-      });
-
-      $("#table").bind("onSave", function(e,id,fields_to_update){
-        feed.update(id,fields_to_update);
-        updater = setInterval(update, 5000);
-      });
-
-      $("#table").bind("onDelete", function(e,id){
-        feed.delete(id);
-      });
+         update();
+         
+         function update()
+         {
+           table.data = feed.select();
+           table.draw();
+         }
+         
+         var updater = setInterval(update, 5000);
+         
+         $("#table").bind("onEdit", function(e){
+            clearInterval(updater);
+         });
+         
+         $("#table").bind("onSave", function(e,id,fields_to_update){
+            feed.update(id,fields_to_update);
+            updater = setInterval(update, 5000);
+         });
+         
+         $("#table").bind("onDelete", function(e,id){
+            feed.delete(id);
+         });
 
     </script>
 ```

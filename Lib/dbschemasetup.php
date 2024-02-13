@@ -83,7 +83,11 @@ function db_schema_diff_key($spec, $current)
 {
     // 'key' is a flag for primary key
     $spec_primarykey = isset($spec['Key']) ? $spec['Key'] : false;
-    return $spec_primarykey && $current['Key'] != "PRI";
+    if ($spec_primarykey && $current['Key'] != "PRI") {
+        return true;
+    } else {
+        return false;
+    }
 }
 
 //
@@ -147,13 +151,13 @@ function db_schema_make_compound_key($schema)
     $fields = array();
     foreach ($schema as $field => $spec) {
         if (isset($spec['Key']) && $spec['Key']) {
-            $fields[] = "`$field`";
+            array_push($fields, "`$field`");
         }
     }
     if (count($fields) < 2) {
         return "";
     }
-    $fields = implode(",", $fields);
+    $fields = join(",", $fields);
     return ", PRIMARY KEY ($fields)";
 }
 
@@ -173,7 +177,7 @@ function db_schema_make_table($mysqli, $table, $schema, &$operations)
         }
     }
 
-    $operations[] = "CREATE TABLE `$table` (" .implode(', ', $fields). $pk . ") ENGINE=MYISAM";
+    $operations[] = "CREATE TABLE `$table` (" .join(', ', $fields). $pk . ") ENGINE=MYISAM";
 
     foreach ($indexes as $field) {
         $operations[] = db_schema_make_index($table, $field);
@@ -244,7 +248,7 @@ function db_schema_setup($mysqli, $schema, $apply)
 
         // If table doesn't exist, create it
         if ($result == null || $result->num_rows == 0) {
-            db_schema_make_table($mysqli, $table, $fields, $operations);
+            db_schema_make_table($mysqli, $table, $schema[$table], $operations);
         } else {
             // Check each field in the schema
             foreach ($fields as $field => $spec) {
