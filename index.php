@@ -15,6 +15,15 @@ http://openenergymonitor.org
 
 define('EMONCMS_EXEC', 1);
 
+// javascript console.log
+function debug_to_console($data) {
+    $output = $data;
+    if (is_array($output))
+        $output = implode(',', $output);
+
+    echo "<script>console.log('Debug Objects: " . $output . "' );</script>";
+}
+
 // 1) Load settings and core scripts
 require "process_settings.php";
 

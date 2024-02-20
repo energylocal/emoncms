@@ -449,6 +449,10 @@ class User
             if ($this->redis) $this->redis->hmset("user:".$userData->id,array('apikey_write'=>$userData->apikey_write));
 
             if(!empty($referrer)) $userData->startingpage = urldecode($referrer);
+            $stmt = $this->mysqli->prepare("UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id=?");
+            $stmt->bind_param("i",$userid);
+            $stmt->execute();
+            $stmt->close();
             return array('success'=>true, 'message'=>_("Login successful"), 'startingpage'=>$userData->startingpage);
         }
     }
@@ -618,7 +622,6 @@ class User
         $stmt->execute();
         $stmt->bind_result($user_id);
         $stmt->fetch();
-        error_log("user_id".$user_id);
         $stmt->close();
         // if token is valid
         if ($user_id!==false && $user_id>0) {
