@@ -422,7 +422,6 @@ class User
             $result = remoteaccess_userlink_existing($this->mysqli,$userid);
             if (!isset($result["success"]) || !$result["success"]) return $result;
             //--------------------------------------------------------------------
-            
             session_regenerate_id();
             $_SESSION['userid'] = $userData->id;
             $_SESSION['username'] = $userData->username;
@@ -434,7 +433,7 @@ class User
             $_SESSION['timezone'] = $userData->timezone;
             $_SESSION['startingpage'] = $userData->startingpage;
             $_SESSION['gravatar'] = $userData->gravatar;
-                                        
+
             if ($this->enable_rememberme) {
                 if ($remembermecheck==true) {
                     if (!$this->rememberme->createCookie($userData->id)) {
@@ -445,7 +444,7 @@ class User
                     $this->rememberme->clearCookie();
                 }
             }
-            
+
             if ($this->redis) $this->redis->hmset("user:".$userData->id,array('apikey_write'=>$userData->apikey_write));
 
             if(!empty($referrer)) $userData->startingpage = urldecode($referrer);
@@ -885,6 +884,11 @@ class User
         $stmt->execute();
         $stmt->close();
         
+        include "Modules/remoteaccess/remoteaccess_userlink.php";
+        $result = remoteaccess_userlink_existing($this->mysqli,$userid);
+        if (!$result) {
+          throw new Exception("Failed to update hash after generating new apikey_write");
+        }
         return $apikey;
     }
 
