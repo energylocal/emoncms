@@ -449,7 +449,7 @@ class User
             if ($this->redis) $this->redis->hmset("user:".$userData->id,array('apikey_write'=>$userData->apikey_write));
 
             if(!empty($referrer)) $userData->startingpage = urldecode($referrer);
-            $stmt = $this->mysqli->prepare("UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id=?");
+            $stmt = $this->mysqli->prepare("UPDATE users SET lastlogin = CURRENT_TIMESTAMP WHERE id=?");
             $stmt->bind_param("i",$userid);
             $stmt->execute();
             $stmt->close();
