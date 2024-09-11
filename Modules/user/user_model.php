@@ -310,7 +310,6 @@ class User
         }
         $stmt->bind_param("s",$username);
         $stmt->execute();
-        
         $stmt->bind_result($id,$email,$email_verified);
         $result = $stmt->fetch();
         $stmt->close();
