@@ -1,7 +1,6 @@
 <?php
 
 
-
 /*
 
 All Emoncms code is released under the GNU Affero General Public License.
