@@ -302,7 +302,7 @@ class User
     public function send_verification_email($username)
     {
         // check for valid username format
-        if (preg_replace('/[^\p{N}\p{L}_\s\-]/u','',$username)!=$username) return array('success'=>false, 'message'=>_("Invalid username"));
+        if (preg_replace('/[^\p{N}\p{L}_.\s\-]/u','',$username)!=$username) return array('success'=>false, 'message'=>_("Invalid username"));
 
         // check that username exists and load email and verification status
         if (!$stmt = $this->mysqli->prepare("SELECT id,email,email_verified FROM users WHERE username=?")) {
