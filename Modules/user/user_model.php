@@ -546,7 +546,7 @@ class User
             }
         }
         // sanitize username
-        $username_out = preg_replace('/[^\p{N}\p{L}_\s\-]/u','',$username);
+        $username_out = preg_replace('/[^\p{N}\p{L}_.\s\-]/u','',$username);
         // validate email format
         if (!filter_var($emailto, FILTER_VALIDATE_EMAIL)) return array('success'=>false, 'message'=>_("Email address format error"));
 
