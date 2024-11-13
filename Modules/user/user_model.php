@@ -458,7 +458,7 @@ class User
     public function get_apikeys_from_login($username_or_email, $password)
     {
         if (!$username_or_email || !$password) return array('success'=>false, 'message'=>_("Username or password empty"));
-        // $username_out = preg_replace('/[^\p{N}\p{L}_\s\-]/u','',$username);
+        // $username_out = preg_replace('/[^\p{N}\p{L}_.\s\-]/u','',$username);
         // if ($username_out!=$username) return array('success'=>false, 'message'=>_("Username must only contain a-z 0-9 dash and underscore"));
 
         $stmt = $this->mysqli->prepare("SELECT id,password,salt,apikey_write,apikey_read FROM users WHERE username=? OR email=?");
@@ -542,7 +542,7 @@ class User
             }
         }
         // sanitize username
-        $username_out = preg_replace('/[^\p{N}\p{L}_\s\-]/u','',$username);
+        $username_out = preg_replace('/[^\p{N}\p{L}_.\s\-]/u','',$username);
         // validate email format
         if (!filter_var($emailto, FILTER_VALIDATE_EMAIL)) return array('success'=>false, 'message'=>_("Email address format error"));
 
