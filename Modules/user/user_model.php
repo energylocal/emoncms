@@ -571,9 +571,9 @@ class User
         // add user id, token and token expiry time to database
         $stmt = $this->mysqli->prepare("INSERT INTO password_reset_tokens (userid, token, expiry_time) VALUES (?, ?, NOW() + INTERVAL 1 HOUR)");
         $stmt->bind_param("is",$userid,$token);
-        if ($stmt->execute()) {
+        if (!$stmt->execute()) {
             $this->log->error("Failed to write password reset token: ".$stmt->error);
-            return array('success'=>false, 'message'=>'There was a problem resetting your password. Please contact info@energylocal.org.uk']);
+            return array('success'=>false, 'message'=>'There was a problem resetting your password. Please contact info@energylocal.org.uk');
         }
         $stmt->close();
         $this->log->info("passwordreset_generation - token written");
