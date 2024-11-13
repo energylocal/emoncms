@@ -531,6 +531,7 @@ class User
     }
 
     public function passwordreset_generation($username, $emailto, $base_url) {
+        $this->log->info("passwordreset_generation($username, $emailto, $base_url);");
         // cleaning up expired tokens from database
         $stmt = $this->mysqli->prepare("DELETE FROM password_reset_tokens WHERE expiry_time < NOW()");
         $stmt->execute();
@@ -543,9 +544,9 @@ class User
         }
         // sanitize username
         $username_out = preg_replace('/[^\p{N}\p{L}_\s\-]/u','',$username);
+        $this->log->info("passwordreset_generation - '$username' sanitised to: '$username_out'");
         // validate email format
         if (!filter_var($emailto, FILTER_VALIDATE_EMAIL)) return array('success'=>false, 'message'=>_("Email address format error"));
-
         // check that there is a match for username + email
         $stmt = $this->mysqli->prepare("SELECT id FROM users WHERE username=? AND email=?");
         $stmt->bind_param("ss",$username_out,$emailto);
@@ -560,12 +561,23 @@ class User
             return array('success'=>false, 'message'=>"Password reset disabled.", 'reset_disabled'=>true, 'invalid_user_email'=>false);
         }
 
-
+        $this->log->info("passwordreset_generation - reset enabled");
         // base URL for password reset
         $base_url = $base_url . "&reset=";
         // generate random token
         $token = hash('sha256',generate_secure_key(32));
-        
+        $this->log->info("passwordreset_generation - token generated: ".$token);
+
+        // add user id, token and token expiry time to database
+        $stmt = $this->mysqli->prepare("INSERT INTO password_reset_tokens (userid, token, expiry_time) VALUES (?, ?, NOW() + INTERVAL 1 HOUR)");
+        $stmt->bind_param("is",$userid,$token);
+        if ($stmt->execute()) {
+            $this->log->error("Failed to write password reset token: ".$stmt->error);
+            return array('success'=>false, 'message'=>'There was a problem resetting your password. Please contact info@energylocal.org.uk']);
+        }
+        $stmt->close();
+        $this->log->info("passwordreset_generation - token written");
+
         // send email with reset link to $emailto
         require "Lib/email.php";
         $email = new Email();
@@ -576,14 +588,9 @@ class User
         if (!$result['success']) {
             $this->log->error("Email send returned error. emailto=" . $emailto . " message='" . $result['message'] . "'");
             return array('success'=>false, 'message'=>$result['message']);
-        } 
+        }
 
         $this->log->info("Email sent to $emailto");
-        // add user id, token and token expiry time to database
-        $stmt = $this->mysqli->prepare("INSERT INTO password_reset_tokens (userid, token, expiry_time) VALUES (?, ?, NOW() + INTERVAL 1 HOUR)");
-        $stmt->bind_param("is",$userid,$token);
-        $stmt->execute();
-        $stmt->close();
         return array('success'=>true, 'message'=>"Password recovery email sent!", 'reset_disabled'=>false, 'invalid_user_email'=>false);          
 
     }
