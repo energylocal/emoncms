@@ -95,11 +95,11 @@ class Feed
     */
     public function create($userid,$tag,$name,$engine,$options_in,$unit='')
     {
-      return create_public($userid,$tag,$name,$engine,$options_in,false,$unit='');
+      return $this->create_public($userid,$tag,$name,$engine,$options_in,false,$unit='');
     }
 
     public function create_public($userid,$tag,$name,$engine,$options_in,$unit='') {
-      return _create($userid,$tag,$name,$engine,$options_in,true,$unit='');
+      return $this->_create($userid,$tag,$name,$engine,$options_in,true,$unit='');
     }
 
     public function _create($userid,$tag,$name,$engine,$options_in,$public,$unit='')
