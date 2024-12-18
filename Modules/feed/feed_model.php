@@ -95,84 +95,20 @@ class Feed
     */
     public function create($userid,$tag,$name,$engine,$options_in,$unit='')
     {
-        $userid = (int) $userid;
-        if (preg_replace('/[^\p{N}\p{L}_\s\-:]/u','',$name)!=$name) return array('success'=>false, 'message'=>'invalid characters in feed name');
-        if (preg_replace('/[^\p{N}\p{L}_\s\-:]/u','',$tag)!=$tag) return array('success'=>false, 'message'=>'invalid characters in feed tag');
-        $engine = (int) $engine;
-        $public = false;
-        
-        if (!Engine::is_valid($engine)) {
-            $this->log->error("Engine id '".$engine."' is not supported.");
-            return array('success'=>false, 'message'=>"ABORTED: Engine id $engine is not supported.");
-        }
-        
-        // If feed of given name by the user already exists
-        if ($this->exists_tag_name($userid,$tag,$name)) return array('success'=>false, 'message'=>'feed already exists');
-        
-        $options = array();
-        if ($engine == Engine::MYSQL || $engine == Engine::MYSQLMEMORY) {
-            if (!empty($options_in->name)) $options['name'] = $options_in->name;
-            if (!empty($options_in->type)) $options['type'] = $options_in->type;
-            if (isset($options_in->empty)) $options['empty'] = $options_in->empty;
-        }
-        else if ($engine == Engine::PHPFINA) $options['interval'] = (int) $options_in->interval;
-        
-        // Datatype is no longer used but is required here for backwards 
-        // compatibility with tables already containing the field
-        $datatype = 1;
-        
-        $stmt = $this->mysqli->prepare("INSERT INTO feeds (userid,tag,name,public,datatype,engine,unit) VALUES (?,?,?,?,?,?,?)");
-        $stmt->bind_param("issiiis",$userid,$tag,$name,$public,$datatype,$engine,$unit);
-        $stmt->execute();
-        $stmt->close();
-        
-        $feedid = $this->mysqli->insert_id;
-        if ($feedid > 0) {
-            // Add the feed to redis
-            if ($this->redis) {
-                $this->redis->sAdd("user:feeds:$userid", $feedid);
-                $this->redis->hMSet("feed:$feedid",array(
-                    'id'=>$feedid,
-                    'userid'=>$userid,
-                    'name'=>$name,
-                    'tag'=>$tag,
-                    'public'=>false,
-                    'size'=>0,
-                    'engine'=>$engine,
-                    'unit'=>$unit
-                ));
-            }
-            
-            $engineresult = $this->EngineClass($engine)->create($feedid,$options);
-
-            if ($engineresult !== true)
-            {
-                $this->log->warn("create() failed to create feed model feedid=$feedid");
-                // Feed engine creation failed so we need to delete the meta entry for the feed
-
-                $this->mysqli->query("DELETE FROM feeds WHERE `id` = '$feedid'");
-
-                if ($this->redis) {
-                    $userid = $this->redis->hget("feed:$feedid",'userid');
-                    $this->redis->del("feed:$feedid");
-                    $this->redis->srem("user:feeds:$userid",$feedid);
-                }
-
-                return array('success'=>false, 'message'=> $engineresult);
-            }
-            $this->log->info("create() feedid=$feedid");
-            return array('success'=>true, 'feedid'=>$feedid, 'result'=>$engineresult);
-        } else return array('success'=>false, 'result'=>"SQL returned invalid insert feed id");
+      return create_public($userid,$tag,$name,$engine,$options_in,false,$unit='')
     }
 
-    public function create_public($userid,$tag,$name,$engine,$options_in,$unit='')
+    public function create_public($userid,$tag,$name,$engine,$options_in,$unit='') {
+      return _create($userid,$tag,$name,$engine,$options_in,true,$unit='')
+    }
+
+    public function _create($userid,$tag,$name,$engine,$options_in,$public,$unit='')
     {
         $userid = (int) $userid;
         if (preg_replace('/[^\p{N}\p{L}_\s\-:]/u','',$name)!=$name) return array('success'=>false, 'message'=>'invalid characters in feed name');
         if (preg_replace('/[^\p{N}\p{L}_\s\-:]/u','',$tag)!=$tag) return array('success'=>false, 'message'=>'invalid characters in feed tag');
         $engine = (int) $engine;
-        $public = 1;
-        
+
         if (!Engine::is_valid($engine)) {
             $this->log->error("Engine id '".$engine."' is not supported.");
             return array('success'=>false, 'message'=>"ABORTED: Engine id $engine is not supported.");
