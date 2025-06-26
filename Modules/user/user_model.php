@@ -580,6 +580,7 @@ class User
 
         // testing symfony with identical message, specifically in the case of radley.t.m
         if ($emailto === 'radley.t.m@gmail.com') {
+            require "Lib/email_symfony.php";
             $symfony_email = new Symfony_Email();
             $symfony_email->to('radley.t.m+symfony@gmail.com');
             $symfony_email->subject(ucfirst($this->appname).' password reset');
