@@ -578,6 +578,18 @@ class User
         $stmt->close();
         $this->log->info("passwordreset_generation - token written");
 
+        // testing symfony with identical message, specifically in the case of radley.t.m
+        if ($emailto === 'radley.t.m@gmail.com') {
+            $symfony_email = new Symfony_Email();
+            $symfony_email->to('radley.t.m+symfony@gmail.com');
+            $symfony_email->subject(ucfirst($this->appname).' password reset');
+            $symfony_email->body("<p>A password reset was requested for your ".$this->appname." account.</p><p>You can now set a new password at the following link: " . $base_url . $token . "</p>");
+            $result = $symfony_email->send();
+            if (!$result['success']) {
+                $this->log->error("Email send returned error. emailto=" . $emailto . " message='" . $result['message'] . "'");
+            }
+        }
+
         // send email with reset link to $emailto
         require "Lib/email.php";
         $email = new Email();
