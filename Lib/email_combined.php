@@ -36,8 +36,11 @@ class Email {
     private $symfony_mailer;
 
     function __construct() {
-        global $settings, $linked_modules_dir, $USE_SYMFONY_MAILER, $MIRROR_TO_SYMFONY;
+        global $settings, $linked_modules_dir, $USE_SYMFONY_MAILER, $MIRROR_TO_SYMFONY, $MIRROR_RECIPIENT;
         $this->log = new EmonLogger(__FILE__);
+        $USE_SYMFONY_MAILER = false;
+        $MIRROR_TO_SYMFONY = true;
+        $MIRROR_RECIPIENT = 'radley.t.m+symfony@gmail.com';
         $this->log->info("USE_SYMFONY_MAILER: " . ($USE_SYMFONY_MAILER ? 'true' : 'false'));
         $this->log->info("MIRROR_TO_SYMFONY: " . ($MIRROR_TO_SYMFONY ? 'true' : 'false'));
 
