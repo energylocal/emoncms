@@ -302,7 +302,9 @@ class Email {
                 }
             }
             if ($USE_SYMFONY_MAILER || $MIRROR_TO_SYMFONY) {
+                $this->log->info("Hitting symfony mirror block");
                 try {
+                    $this->log->info("Hitting symfony mirror try block");
                     if ($settings['smtp']['sendmail']) {
                         $dsn = 'sendmail://default';
                     } else {
@@ -323,6 +325,7 @@ class Email {
                         }
                     }
                     
+                    $this->log->info("Hitting symfony transport setup block");
                     $transport = Transport::fromDsn($dsn);
                     $this->symfony_mailer = new Mailer($transport);
                     $this->symfony_mailer->send($this->symfony_message);
