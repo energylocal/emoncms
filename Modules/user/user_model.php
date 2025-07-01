@@ -500,7 +500,6 @@ class User
     {
         $userid = (int) $userid;
 
-        if (strlen($old) < 4 || strlen($old) > 250) return array('success'=>false, 'message'=>_("Password length error"));
         if (strlen($new) < 4 || strlen($new) > 250) return array('success'=>false, 'message'=>_("Password length error"));
 
         // 1) check that old password is correct
