@@ -23,6 +23,9 @@ $USE_SYMFONY_MAILER = false; // if set to true, symfony will be used instead of 
 $MIRROR_TO_SYMFONY = true; // if set to true, swift will be used to email actual destination, but emails will be mirrored to given address with symfony
 $MIRROR_RECIPIENT = 'radley.t.m+symfony@gmail.com'; // recipient for mirror sending
 
+error_log("INITIAL VALUES - USE_SYMFONY_MAILER: " . ($USE_SYMFONY_MAILER ? 'true' : 'false'));
+error_log("INITIAL VALUES - MIRROR_TO_SYMFONY: " . ($MIRROR_TO_SYMFONY ? 'true' : 'false'));
+
 class Email {
     private $log;
     // swift
