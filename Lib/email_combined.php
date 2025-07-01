@@ -38,8 +38,6 @@ class Email {
     function __construct() {
         global $settings, $linked_modules_dir, $USE_SYMFONY_MAILER, $MIRROR_TO_SYMFONY;
         $this->log = new EmonLogger(__FILE__);
-        $MIRROR_TO_SYMFONY = true;
-        $USE_SYMFONY_MAILER = false;
         $this->log->info("USE_SYMFONY_MAILER: " . ($USE_SYMFONY_MAILER ? 'true' : 'false'));
         $this->log->info("MIRROR_TO_SYMFONY: " . ($MIRROR_TO_SYMFONY ? 'true' : 'false'));
 
