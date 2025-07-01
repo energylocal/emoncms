@@ -20,7 +20,7 @@ use Symfony\Component\Mime\Part\File;
 
 // behaviour switches
 $USE_SYMFONY_MAILER = false; // if set to true, symfony will be used instead of swift - swift will no longer be used
-$MIRROR_TO_SYMFONY = false; // if set to true, swift will be used to email actual destination, but emails will be mirrored to given address with symfony
+$MIRROR_TO_SYMFONY = true; // if set to true, swift will be used to email actual destination, but emails will be mirrored to given address with symfony
 $MIRROR_RECIPIENT = 'radley.t.m+symfony@gmail.com'; // recipient for mirror sending
 
 class Email {
@@ -326,8 +326,10 @@ class Email {
                     $transport = Transport::fromDsn($dsn);
                     $this->symfony_mailer = new Mailer($transport);
                     $this->symfony_mailer->send($this->symfony_message);
+                    $this->log->info("Symfony email sent");
                     
-                } catch (Exception $e) {
+                } catch (TransportExceptionInterface $e) {
+                    $this->log->error($e->getDebug());
                     $error_msg = "Symfony Mailer error: " . $e->getMessage();
                     $this->log->error($error_msg);
                     return array('success'=>false, 'message'=>$error_msg);

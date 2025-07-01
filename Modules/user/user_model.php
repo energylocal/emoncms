@@ -589,21 +589,8 @@ class User
             $this->log->error("Email send returned error. emailto=" . $emailto . " message='" . $result['message'] . "'");
             return array('success'=>false, 'message'=>$result['message']);
         }
-
         $this->log->info("Email sent to $emailto");
-
-        // testing symfony with identical message to a different email tag, specifically in the case of radley.t.m
-        if ($emailto === 'radley.t.m@gmail.com') {
-            if (isset($USE_SYMFONY_MAILER) && !$USE_SYMFONY_MAILER && $MIRROR_TO_SYMFONY) {
-                $email->to('radley.t.m+symfonytest@gmail.com');
-                $email->subject(ucfirst($this->appname).' password reset');
-                $email->body("<p>A password reset was requested for your ".$this->appname." account.</p><p>You can now set a new password at the following link: " . $base_url . $token . "</p>");
-                $result = $email->send();
-                if (!$result['success']) {
-                    $this->log->error("Email send returned error. emailto=" . $emailto . " message='" . $result['message'] . "'");
-                }
-            }
-        }
+        
         return array('success'=>true, 'message'=>"Password recovery email sent!", 'reset_disabled'=>false, 'invalid_user_email'=>false);
 
     }
