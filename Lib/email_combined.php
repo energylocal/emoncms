@@ -41,6 +41,7 @@ class Email {
 
         // Swift Setup //
         if (!$USE_SYMFONY_MAILER || $MIRROR_TO_SYMFONY) {
+            $this->log->info("Swift setup block");
             $this->swift_message = null;
             // include SwiftMailer. path from a PEAR install,
             $this->have_swift = @include_once("swift_required.php");
@@ -59,7 +60,7 @@ class Email {
 
         // Symfony Setup //
         if ($USE_SYMFONY_MAILER || $MIRROR_TO_SYMFONY) {
-
+            $this->log->info("Symfony setup block");
             $this->symfony_message = null;
             $this->symfony_mailer = null;
             
@@ -130,9 +131,11 @@ class Email {
         }
         if ($this->check()) {
             if (!$USE_SYMFONY_MAILER || $MIRROR_TO_SYMFONY) {
+                $this->log->info("Swift 'to' block");
                 $this->swift_message->setTo($to);
             }
             if ($MIRROR_TO_SYMFONY) {
+                $this->log->info("Symfony 'to' block");
                 $this->symfony_message->to($MIRROR_RECIPIENT);
             }
             if ($USE_SYMFONY_MAILER) {
@@ -220,9 +223,11 @@ class Email {
         }
         if ($this->check()) {
             if (!$USE_SYMFONY_MAILER || $MIRROR_TO_SYMFONY) {
+                $this->log->info("Swift 'subject' block");
                 $this->swift_message->setSubject($subject);
             }
             if ($MIRROR_TO_SYMFONY) {
+                $this->log->info("Symfony 'subject' block");
                 $this->symfony_message->subject("[SYMFONY MIRROR] " . $subject);
             }
             if ($USE_SYMFONY_MAILER && !$MIRROR_TO_SYMFONY) {
@@ -241,9 +246,11 @@ class Email {
         }
         if ($this->check()) {
             if (!$USE_SYMFONY_MAILER || $MIRROR_TO_SYMFONY) {
+                $this->log->info("Swift 'body' block");
                 $this->swift_message->setBody($body, $type);
             }
             if ($USE_SYMFONY_MAILER || $MIRROR_TO_SYMFONY) {
+                $this->log->info("Symfony 'body' block");
                 if ($type === 'text/html') {
                     $this->symfony_message->html($body);
                 } else {
@@ -277,7 +284,8 @@ class Email {
             return array('success'=>true, 'message'=>"");
         }
         if ($this->check()) {
-            if (!$USE_SYMFONY_MAILER || $MIRROR_TO_SYMFONY) {
+            if (!$USE_SYMFONY_MAILER || $MIRROR_TO_SYMFONY) { 
+                $this->log->info("Swift 'send' block");
                 try {
                     if ($settings['smtp']['sendmail']) {
                         $transport = Swift_SendmailTransport::newInstance('/usr/sbin/sendmail -bs');
