@@ -20,7 +20,7 @@ use Symfony\Component\Mime\Part\File;
 
 // behaviour switches
 $USE_SYMFONY_MAILER = false; // if set to true, symfony will be used instead of swift - swift will no longer be used
-$MIRROR_TO_SYMFONY = true; // if set to true, swift will be used to email actual destination, but emails will be mirrored to given address with symfony
+$MIRROR_TO_SYMFONY = false; // if set to true, swift will be used to email actual destination, but emails will be mirrored to given address with symfony
 $MIRROR_RECIPIENT = 'tom@energylocal.org.uk'; // recipient for mirror sending
 
 class Email {

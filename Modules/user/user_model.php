@@ -579,7 +579,7 @@ class User
         $this->log->info("passwordreset_generation - token written");
 
         // send email with reset link to $emailto
-        require "Lib/email.php";
+        require "Lib/email_combined.php";
         $email = new Email();
         $email->to($emailto);
         $email->subject(ucfirst($this->appname).' password reset');
@@ -591,7 +591,6 @@ class User
         }
 
         $this->log->info("Email sent to $emailto");
-        return array('success'=>true, 'message'=>"Password recovery email sent!", 'reset_disabled'=>false, 'invalid_user_email'=>false);
 
         // testing symfony with identical message to a different email tag, specifically in the case of radley.t.m
         if ($emailto === 'radley.t.m@gmail.com') {
@@ -607,6 +606,7 @@ class User
                 $MIRROR_TO_SYMFONY = false;
             }
         }
+        return array('success'=>true, 'message'=>"Password recovery email sent!", 'reset_disabled'=>false, 'invalid_user_email'=>false);
 
     }
 
