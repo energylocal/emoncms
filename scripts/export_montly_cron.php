@@ -122,7 +122,7 @@
                 $log->info("Sending Email to $emailto ...");
                 $emailbody = "Attached is CSV for '". $tag . "' tag.";
                 $emailbody .= "\nTime range: ".$startText." to ".$endText;
-                require_once "Lib/email.php";
+                require_once "Lib/symfony_email.php";
                 $email = new Email();
                 //$email->from(from);
                 $email->to($emailto);

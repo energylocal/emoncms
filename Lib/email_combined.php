@@ -19,8 +19,8 @@ use Symfony\Component\Mime\Part\DataPart;
 use Symfony\Component\Mime\Part\File;
 
 // behaviour switches
-$USE_SYMFONY_MAILER = false; // if set to true, symfony will be used instead of swift - swift will no longer be used
-$MIRROR_TO_SYMFONY = true; // if set to true, swift will be used to email actual destination, but emails will be mirrored to given address with symfony
+$USE_SYMFONY_MAILER = true; // if set to true, symfony will be used instead of swift - swift will no longer be used
+$MIRROR_TO_SYMFONY = false; // if set to true, swift will be used to email actual destination, but emails will be mirrored to given address with symfony
 $MIRROR_RECIPIENT = 'radley.t.m+symfony@gmail.com'; // recipient for mirror sending
 
 class Email {
@@ -38,8 +38,8 @@ class Email {
     function __construct() {
         global $settings, $linked_modules_dir, $USE_SYMFONY_MAILER, $MIRROR_TO_SYMFONY, $MIRROR_RECIPIENT;
         $this->log = new EmonLogger(__FILE__);
-        $USE_SYMFONY_MAILER = false;
-        $MIRROR_TO_SYMFONY = true;
+        $USE_SYMFONY_MAILER = true;
+        $MIRROR_TO_SYMFONY = false;
         $MIRROR_RECIPIENT = 'radley.t.m+symfony@gmail.com';
         $this->log->info("USE_SYMFONY_MAILER: " . ($USE_SYMFONY_MAILER ? 'true' : 'false'));
         $this->log->info("MIRROR_TO_SYMFONY: " . ($MIRROR_TO_SYMFONY ? 'true' : 'false'));

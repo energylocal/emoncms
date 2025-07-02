@@ -339,7 +339,7 @@ class User
         //    "message"=>"<p>To complete emoncms registration please verify your email by following this link: <a href='$verification_link'>$verification_link</a></p>"
         // )));
         
-        require "Lib/email.php";
+        require "Lib/symfony_email.php";
         $emailer = new Email();
         $emailer->to(array($email));
         $emailer->subject(ucfirst($this->appname).' email verification');
@@ -578,7 +578,7 @@ class User
         $this->log->info("passwordreset_generation - token written");
 
         // send email with reset link to $emailto
-        require "Lib/email_combined.php";
+        require "Lib/symfony_email.php";
         $email = new Email();
         $email->to($emailto);
         $email->subject(ucfirst($this->appname).' password reset');

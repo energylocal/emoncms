@@ -118,7 +118,7 @@ class Eventp_ProcessList
         $emailto = $settings['smtp']['default_emailto'];
 
         if (!empty($emailto)) { 
-            require_once "Lib/email.php";
+            require_once "Lib/symfony_email.php";
             $email = new Email();
             //$email->from(from);
             $email->to($emailto);

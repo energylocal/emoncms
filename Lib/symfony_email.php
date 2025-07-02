@@ -16,6 +16,7 @@ use Symfony\Component\Mailer\Transport;
 use Symfony\Component\Mime\Email as SymfonyEmail;
 use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Part\DataPart;
+use Symfony\Component\Mime\Part\AddPart;
 use Symfony\Component\Mime\Part\File;
 
 class Email
@@ -65,10 +66,14 @@ class Email
         return true;
     }
 
-    function from($from)
+    function from($address, $name=null)
     {
         if ($this->check()) {
-            $this->message->from($from);
+            if ($name!=null) {
+                $this->message->from(new Address($address, $name));
+            } else {
+                $this->message->from($address);
+            }
         }
     }
 
@@ -142,14 +147,20 @@ class Email
         }
     }
 
-    function attach($filepath, $contentType = null)
-    {
-        if ($this->check()) {
+    function attach($filepath, $contentType = null, $filename = null) {
+        if ($this->check()) {    
             if (!file_exists($filepath)) {
                 $this->log->error("Attachment file not found: $filepath");
                 return false;
             }
-            $this->message->addPart(new DataPart(new File($filepath), $filename, $contentType));
+            
+            try {
+                $this->message->attachFromPath($filepath, $filename, $contentType);
+                $this->log->error('attachment added');
+            } catch (Throwable $e) {
+                $this->log->error('Exception/Error occurred: ' . $e->getMessage());
+                return false;
+            }
         }
     }
 
