@@ -96,7 +96,7 @@ global $path, $settings;
                 </div>
                 <div class="form-group">
                     <label>Account email address
-                        <input id="passwordreset-email" type="text" />
+                        <input id="start-passwordreset-email" type="text" />
                     </label>
                 </div>
                 <button id="passwordreset-submit" class="btn btn-primary" type="button">Recover</button>
@@ -147,7 +147,7 @@ $("#passwordreset-link-cancel").on("click", function(){
 
 $("#passwordreset-submit").click(function(){
     var username = $("#passwordreset-username").val();
-    var email = $("#passwordreset-email").val();
+    var email = $("#start-passwordreset-email").val();
 
     if (email==="" || username==="") {
         $("#passwordresetmessage").html("<div>&nbsp;</div><div class='alert alert-error'>Please enter username and email address</div>");

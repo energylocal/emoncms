@@ -75,6 +75,7 @@ class PHPFina implements engine_methods
                 return $msg;
             }
             fclose($fh);
+            chmod($this->dir.$id.".dat", 0660);
             $this->log->info("create() feedid=$id");
         }
 
@@ -766,6 +767,7 @@ class PHPFina implements engine_methods
         fwrite($metafile,pack("I",$meta->interval));
         fwrite($metafile,pack("I",$meta->start_time));
         fclose($metafile);
+        chmod($this->dir.$feedname, 0660);
         return true;
     }
     
