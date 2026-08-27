@@ -91,7 +91,7 @@ $_settings = array(
     'virtualfeed'   => array('data_sampling' => false),
     'mysqltimeseries'   => array('data_sampling' => false),
     // Datapoint limit. Increasing this effects system performance but allows for more data points to be read from one api call
-    'max_datapoints'        => 8928,
+    'max_datapoints'        => 50000,
     
     // Minumum feed interval
     'min_feed_interval' => 10,
