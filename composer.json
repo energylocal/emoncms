@@ -21,6 +21,7 @@
         "ext-json": "*",
         "ext-curl": "*",
         "ext-openssl": "*",
-        "ext-ctype": "*"
+        "ext-ctype": "*",
+        "symfony/mailer": "^7.3"
     }
 }
