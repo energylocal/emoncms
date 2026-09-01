@@ -53,7 +53,7 @@ class EmonLogger
     public function set($logfile, $log_level)
     {
         $this->logfile = $logfile;
-        $this->log_enabled = true;
+        $this->logenabled = true;
         $this->log_level = $log_level;
     }
 
@@ -94,7 +94,7 @@ class EmonLogger
         }
 
         $now = microtime(true);
-        $micro = sprintf("%03d", ($now - round($now,0,PHP_ROUND_HALF_DOWN)) * 1000);
+        $micro = sprintf("%03d", ($now - intval($now)) * 1000 );
         $now = DateTime::createFromFormat('U', (int)$now); // Only use UTC for logs
         $now = $now->format("Y-m-d H:i:s").".$micro";
         // Clear log file if more than 256MB (temporary solution)

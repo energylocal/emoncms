@@ -146,7 +146,7 @@ class InputMethods
                 }
                 
             } else {
-                $log->error("Invalid JSON: $datain");
+                $log->error("Invalid JSON: " . htmlspecialchars($datain, ENT_QUOTES, 'UTF-8'));
                 return "Input in not a valid JSON object";
             }
         } else {
@@ -219,14 +219,19 @@ class InputMethods
         if ($param->exists('cb')) {
             // data is compressed binary format
             $data = file_get_contents('php://input');
-            $data = gzuncompress($data);
+            $data = @gzuncompress($data);
         } elseif ($param->exists('c')) {
             // data is compressed hex format
-            $data = gzuncompress(hex2bin($data));
+            $bindata = hex2bin($data);
+            if (!$bindata) {
+                return "Format error, compressed hex not valid";
+            }
+            $data = @gzuncompress($bindata);
         }
-        
+        if ($data==null) return "Format error, json string supplied is not valid";
         $data = json_decode($data);
-
+        if ($data==null) return "Format error, json string supplied is not valid";
+        
         $len = count($data);
         
         if ($len==0) return "Format error, json string supplied is not valid";
@@ -310,6 +315,14 @@ class InputMethods
             if ($this->device) $this->device->create($userid,$nodeid,null,null,null);
         }
         
+        if ($this->device) {
+            $deviceid = $this->device->exists_nodeid($userid,$nodeid);
+            if ($deviceid) {
+                $ip_address = get_client_ip_env();
+                $this->device->set_fields($deviceid,json_encode(array("ip"=>$ip_address)));
+            }
+        }
+
         $tmp = array();
         foreach ($inputs as $name => $value)
         {
@@ -329,8 +342,10 @@ class InputMethods
                 if ($dbinputs[$nodeid][$name]['processList']) $tmp[] = array(
                     'value'=>$value,
                     'processList'=>$dbinputs[$nodeid][$name]['processList'],
-                    'opt'=>array('sourcetype' => ProcessOriginType::INPUT,
-                    'sourceid'=>$dbinputs[$nodeid][$name]['id'])
+                    'opt'=>array(
+                        'sourcetype' => ProcessOriginType::INPUT,
+                        'sourceid'=>$dbinputs[$nodeid][$name]['id']
+                    )
                 );
 
                 if (isset($_GET['mqttpub'])) $this->process->publish_to_mqtt("emon/$nodeid/$name",$time,$value);

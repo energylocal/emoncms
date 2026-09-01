@@ -307,6 +307,11 @@ class PHPTimeSeries implements engine_methods
             $helperclass->set_time_format($timezone,$timeformat);
         }
 
+        $notime = false;
+        if ($timeformat === "notime") {
+            $notime = true;
+        }
+
         if ($end<=$start) return array('success'=>false, 'message'=>"request end time before start time");
         
         // The first section here deals with the timezone aligned interval codes
@@ -416,7 +421,7 @@ class PHPTimeSeries implements engine_methods
                 }      
                 
                 $len = $next_start_dp[0]-$start_dp[0];
-                if ($len) {
+                if ($len>0) {
                     fseek($fh,$start_dp[0]*9);
                     $s = fread($fh,$len*9);
                     $s2 = "";
@@ -442,6 +447,8 @@ class PHPTimeSeries implements engine_methods
             if ($value!==null || $skipmissing===0) {
                 if ($csv) { 
                     $helperclass->csv_write($timestamp,$value);
+                } else if ($notime) {
+                    $data[] = $value;
                 } else {
                     $data[] = array($timestamp,$value);
                 }
@@ -505,6 +512,48 @@ class PHPTimeSeries implements engine_methods
         fclose($fh);
         exit;
     }
+
+    /**
+     * Fixed interval sync upload
+     *
+     * @param binary $binary_data
+     * @return array 
+     */
+    public function sync($binary_data) {
+    
+        $pos = 0;
+        
+        // Length of data + 12 byte meta
+        $data_len = unpack("I",substr($binary_data,$pos,4))[1];
+        $pos += 4;
+
+        // Feedid is validated in the feed model
+        $feedid = unpack("I",substr($binary_data,$pos,4))[1];
+        $pos += 4;
+        
+        // Start position of this data segment
+        $data_start = unpack("I",substr($binary_data,$pos,4))[1];
+        $pos += 4;
+        
+        // We have now read the 12 byte meta
+        
+        // -----------------------
+
+        if ($data_start<0) return array("success"=>false, "message"=>"Invalid data_start for feed $feedid");
+        if ($data_len<=12) return array("success"=>false, "message"=>"Invalid data_len for feed $feedid");        
+
+        // Get data segment
+        $data_str = substr($binary_data,$pos,$data_len-$pos);
+
+        // Write binary data
+        $datafile = fopen($this->dir."feed_$feedid.MYD", 'c+');
+        fseek($datafile,$data_start);
+        fwrite($datafile,$data_str);
+        fclose($datafile);
+        
+        return array("success"=>true);
+    }
+
 
     // returns nearest datapoint that is >= search time
     private function binarysearch($fh,$time,$npoints,$exact=false)
@@ -592,5 +641,65 @@ class PHPTimeSeries implements engine_methods
         }
         
         if ($n>0) print "average: ".($sum/$n)."\n";
+    }
+
+
+    /*
+     * Get sha256sum of the feed data file
+     * @param integer $id The id of the feed
+     * @param integer $npoints the number of points in the feed to calculate the sha256sum for 0 - $npoints
+     * 
+     * @return string sha256sum 
+     */
+    public function get_sha256sum($id, $npoints = 0)
+    {
+        $id = (int) $id;
+        $npoints = (int) $npoints;
+
+        // Get feed metadata
+        if (!$meta = $this->get_meta($id)) {
+            return array('success' => false, 'message' => 'Failed to get feed metadata');
+        }
+
+        // Validate and set npoints
+        if ($npoints <= 0 || $npoints > $meta->npoints) {
+            $npoints = $meta->npoints;
+        }
+
+        if ($npoints == 0) {
+            return array('success' => false, 'message' => 'No data points available');
+        }
+
+        $bytes_to_read = $npoints * 9;
+        $dat_file = $this->dir."feed_$id.MYD";
+
+        // Quick file existence check before shell command
+        if (!file_exists($dat_file)) {
+            return array('success' => false, 'message' => 'Data file does not exist');
+        }
+
+        // Use shell command for optimal performance on large files
+        $dat_file_escaped = escapeshellarg($dat_file);
+        $cmd = "head -c $bytes_to_read $dat_file_escaped | sha256sum 2>/dev/null";
+        $output = shell_exec($cmd);
+        
+        if ($output === null) {
+            return array('success' => false, 'message' => 'Failed to execute hash calculation');
+        }
+
+        // Parse sha256sum output
+        $output = trim($output);
+        $parts = explode(" ", $output);
+        
+        if (count($parts) < 1 || strlen($parts[0]) != 64) {
+            return array('success' => false, 'message' => 'Invalid hash output');
+        }
+
+        return array(
+            'success' => true,
+            'npoints' => $npoints,
+            'size' => number_format(($npoints * 9)/(1024*1024),3)." MB",
+            'sha256sum' => $parts[0]
+        );
     }
 }

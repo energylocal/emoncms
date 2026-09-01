@@ -11,28 +11,34 @@
  ?>
 
 <!--[if IE]><script language="javascript" type="text/javascript" src="<?php echo $path;?>Lib/flot/excanvas.min.js"></script><![endif]-->
-<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/jquery.flot.merged.js"></script>
+<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/jquery.flot.min.js"></script>
+<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/jquery.flot.selection.min.js"></script>
+<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/jquery.flot.touch.min.js"></script>
+<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/jquery.flot.time.min.js"></script>
+<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/date.format.min.js"></script>
+<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/jquery.flot.canvas.min.js"></script>
 <script language="javascript" type="text/javascript" src="<?php echo $path;?>Lib/vis.helper.js?v=<?php echo $vis_version; ?>"></script>
 <script language="javascript" type="text/javascript" src="<?php echo $path;?>Modules/feed/feed.js?v=<?php echo $vis_version; ?>"></script>
     
 <?php if (!$embed) { ?>
-<h2><?php echo _("Realtime data:"); ?> <?php echo $feedidname; ?></h2>
+<h2><?php echo tr("Realtime data:"); ?> <?php echo $feedidname; ?></h2>
 <?php } ?>
 
 <div id="graph_bound" style="height:400px; width:100%; position:relative; ">
  <div id="graph"></div>
  <div style="position:absolute; top:20px; right:20px;  opacity:0.5;">
-   <button class="viewWindow" time="3600">1 <?php echo _('hour') ?></button>
-   <button class="viewWindow" time="1800">30 <?php echo _('min') ?></button>
-   <button class="viewWindow" time="900">15 <?php echo _('min') ?></button>
-   <button class="viewWindow" time="300">5 <?php echo _('min') ?></button>
-   <button class="viewWindow" time="60">1 <?php echo _('min') ?></button>
+   <button class="viewWindow" time="3600">1 <?php echo tr('hour') ?></button>
+   <button class="viewWindow" time="1800">30 <?php echo tr('min') ?></button>
+   <button class="viewWindow" time="900">15 <?php echo tr('min') ?></button>
+   <button class="viewWindow" time="300">5 <?php echo tr('min') ?></button>
+   <button class="viewWindow" time="60">1 <?php echo tr('min') ?></button>
  </div>
 </div>
 
 <script id="source" language="javascript" type="text/javascript">
 var feedid = <?php echo $feedid; ?>; //Fetch table name
 var apikey = "<?php echo $apikey; ?>";
+feed.apikey = apikey;
 var embed = <?php echo $embed; ?>;
 var is_kw = <?php echo $kw === 1?'true':'false'; ?>;
 var data = [];

@@ -36,6 +36,9 @@ class Input
         // if (strlen($name)>64) return false; // restriction placed on emoncms.org
         $id = false;
         
+        // Is input creation for this user disabled?
+        if ($this->is_creation_disabled($userid)) return false;
+
         if ($stmt = $this->mysqli->prepare("INSERT INTO input (userid,name,nodeid,description,processList) VALUES (?,?,?,'','')")) {
             $stmt->bind_param("iss",$userid,$name,$nodeid);
             $stmt->execute();
@@ -144,6 +147,7 @@ class Input
         $fields = json_decode(stripslashes($fields));
         
         $success = false;
+        $fields_out = array();
 
         if (isset($fields->name)) {
             if (preg_replace('/[^\p{N}\p{L}_\s\-]/u','',$fields->name)!=$fields->name) return array('success'=>false, 'message'=>'invalid characters in input name');
@@ -153,6 +157,7 @@ class Input
             $stmt->close();
             
             if ($this->redis) $this->redis->hset("input:$id",'name',$fields->name);
+            $fields_out['name'] = $fields->name;
         }
         
         if (isset($fields->description)) {
@@ -163,15 +168,74 @@ class Input
             $stmt->close();
             
             if ($this->redis) $this->redis->hset("input:$id",'description',$fields->description);
+            $fields_out['description'] = $fields->description;
         }
 
         if ($success){
-            return array('success'=>true, 'message'=>'Field updated');
+            return array(
+                'success'=>true, 
+                'message'=>'Field updated',
+                'inputid'=>$id,
+                'fields'=>$fields_out
+            );
         } else {
             return array('success'=>false, 'message'=>'Field could not be updated');
         }
     }
     
+    /**
+     * Update the description of multiple inputs in a single call.
+     *
+     * @param int    $userid
+     * @param string $inputs_json  JSON-encoded array of {id, description} objects
+     * @return array {success, results: {<inputid>: {success, message}}}
+     */
+    public function set_descriptions_multiple($userid, $inputs_json)
+    {
+        $userid = (int) $userid;
+        $inputs = json_decode(stripslashes($inputs_json), true);
+
+        if (!is_array($inputs) || empty($inputs)) {
+            return array('success' => false, 'message' => 'Invalid input data');
+        }
+
+        $results = array();
+        $any_success = false;
+
+        foreach ($inputs as $item) {
+            $id = isset($item['id']) ? (int) $item['id'] : 0;
+            $description = isset($item['description']) ? (string) $item['description'] : '';
+
+            if ($id <= 0) {
+                $results[$id] = array('success' => false, 'message' => 'Invalid input id');
+                continue;
+            }
+
+            if (!$this->belongs_to_user($userid, $id)) {
+                $results[$id] = array('success' => false, 'message' => 'Access denied');
+                continue;
+            }
+
+            if (preg_replace('/[^\p{N}\p{L}_\s\-.]/u', '', $description) !== $description) {
+                $results[$id] = array('success' => false, 'message' => 'Invalid characters in description');
+                continue;
+            }
+
+            $stmt = $this->mysqli->prepare("UPDATE input SET description = ? WHERE id = ?");
+            $stmt->bind_param("si", $description, $id);
+            if ($stmt->execute()) {
+                if ($this->redis) $this->redis->hset("input:$id", 'description', $description);
+                $results[$id] = array('success' => true, 'message' => 'Description updated');
+                $any_success = true;
+            } else {
+                $results[$id] = array('success' => false, 'message' => 'Update failed');
+            }
+            $stmt->close();
+        }
+
+        return array('success' => $any_success, 'results' => $results);
+    }
+
     public function set_node_input_descriptions($userid,$nodeid,$names)
     {
         $names = explode(",",$names);
@@ -205,7 +269,14 @@ class Input
             
             if ($this->redis) $this->redis->hset("input:$id",'description',$description);
         }
-        return array('success'=>true, 'message'=>'input descriptions updated');
+
+        return array(
+            'success'=>true, 
+            'message'=>'input descriptions updated',
+            'userid'=>$userid,
+            'nodeid'=>$nodeid,
+            'names'=>$names
+        );
     }    
 
 
@@ -370,7 +441,6 @@ class Input
         for ($i=0; $i<count($result); $i+=2) {
             $row = $result[$i];
             $lastvalue = $result[$i+1];
-            // $row["description"] = mb_convert_encoding($row["description"], 'UTF-8', mb_list_encodings());
             $row["description"] = mb_convert_encoding($row["description"], 'UTF-8', 'auto');
             if (!isset($lastvalue['time']) || !is_numeric($lastvalue['time']) || is_nan($lastvalue['time'])) {
                 $row['time'] = null;
@@ -482,9 +552,16 @@ class Input
 
         if ($this->redis) {
             $this->redis->del("input:$inputid");
+            $this->redis->del("input:lastvalue:$inputid");
             $this->redis->srem("user:inputs:$userid",$inputid);
         }
-        return "input deleted";
+
+        return array(
+            'success'=>true, 
+            'message'=>'Input deleted',
+            'userid'=>$userid,
+            'inputid'=>$inputid
+        );
     }
     
     // userid and inputids are checked in belongs_to_user and delete
@@ -492,7 +569,12 @@ class Input
         foreach ($inputids as $inputid) {
             if ($this->belongs_to_user($userid, $inputid)) $this->delete($userid, $inputid);
         }
-        return "inputs deleted";
+        return array(
+            'success'=>true, 
+            'message'=>'Inputs deleted',
+            'userid'=>$userid,
+            'inputids'=>$inputids
+        );
     }
 
     public function clean($userid)
@@ -505,12 +587,7 @@ class Input
             $inputid = $row['id'];
             if ($row['processList']==NULL || $row['processList']=='')
             {
-                $result = $this->mysqli->query("DELETE FROM input WHERE userid = '$userid' AND id = '$inputid'");
-
-                if ($this->redis) {
-                    $this->redis->del("input:$inputid");
-                    $this->redis->srem("user:inputs:$userid",$inputid);
-                }
+                $this->delete($userid, $inputid);
                 $n++;
             }
         }
@@ -519,48 +596,50 @@ class Input
     
     public function clean_processlist_feeds($process_class,$userid) 
     {
-        $processes = $process_class->get_process_list();
-        $out = "";
         $userid = (int) $userid;
+        $out = "";
+        $processes = $process_class->get_process_list();
         $result = $this->mysqli->query("SELECT id, processList FROM input WHERE `userid`='$userid'");
         while ($row = $result->fetch_object())
         {
             $inputid = $row->id;
-            $processlist = $row->processList;
-            $pairs = explode(",",$processlist);
 
-            $pairsout = array();
-            for ($i=0; $i<count($pairs); $i++)
-            {
+            // Decode into process list array, each with fn, args
+            $current_processlist = $row->processList;
+            $input_process_list = $process_class->decode_processlist($current_processlist);
+
+            $cleaned_input_process_list = array();
+            foreach ($input_process_list as $input_process) {
                 $valid = true;
-                $keyarg = explode(":",$pairs[$i]);
-                if (count($keyarg)==2) {
-                    $key = $keyarg[0];
-                    $arg = $keyarg[1];
                     
-                    // Map ids to process key names
-                    if (isset($process_class->process_map[$key])) $key = $process_class->process_map[$key];
+                $process_info = $processes[$input_process['fn']];
 
-                    if (!isset($processes[$key])) {
-                        $this->log->error("clean_processlist_feeds() Processor '".$processkey."' does not exists. Module missing?");
-                        return false;
+                foreach ($process_info['args'] as $index => $arg) {
+                    if ($arg['type'] == ProcessArg::FEEDID) {
+                        $feedid = $input_process['args'][$index];
+                        if (!$this->feed->exist($feedid)) {
+                            $valid = false;
+                        }
                     }
-
-                    if ($processes[$key]["argtype"] == ProcessArg::FEEDID) {
-                        if (!$this->feed->exist($arg)) $valid = false;
-                    }
-                } else {
-                    $valid = false;
                 }
-                if ($valid) $pairsout[] = $pairs[$i];
-            }
-            $processlist_after = implode(",",$pairsout);
 
-            if ($processlist_after!=$processlist) {
-                if ($this->redis)
+                if ($valid) {
+                    $cleaned_input_process_list[] = $input_process;
+                }
+            }
+
+            $processlist_after = $process_class->encode_processlist($cleaned_input_process_list);
+
+            if ($processlist_after!=$current_processlist) {
+                if ($this->redis) {
                     $this->redis->hset("input:$inputid",'processList',$processlist_after);
-                $this->mysqli->query("UPDATE input SET processList = '$processlist_after' WHERE id='$inputid'");
-                $out .= "processlist for input $inputid changed from $processlist to $processlist_after\n";
+                }
+                $inputid_int = (int) $inputid;
+                $stmt = $this->mysqli->prepare("UPDATE input SET processList = ? WHERE id=?");
+                $stmt->bind_param("si", $processlist_after, $inputid_int);
+                $stmt->execute();
+                $stmt->close();
+                $out .= "processlist for input $inputid changed from $current_processlist to $processlist_after\n";
             }
         }
         return $out;
@@ -592,112 +671,57 @@ class Input
     // are only available via the text based function reference.
     // $process_list is a list of processes
     
-    public function set_processlist($userid, $id, $processlist, $process_list)
+    public function set_processlist($userid, $id, $processlist, $process_class)
     {    
         $userid = (int) $userid;
         $id = (int) $id;
         
-        // Validate processlist
-        $pairs = explode(",",$processlist);
-        $pairs_out = array();
+        $result = $process_class->validate_processlist($userid, $id, $processlist, 0); // 0 = input context
+        if (!$result['success']) return $result;
+        $processlist_out = $result['processlist'];
         
-        // Build map of processids where set
-        $map = array();
-        foreach ($process_list as $key=>$process) {
-            if (isset($process['id_num'])) $map[$process['id_num']] = $key;
-        }
-        
-        foreach ($pairs as $pair)
-        {
-            $inputprocess = explode(":", $pair);
-            if (count($inputprocess)==2) {
-            
-                // Verify process id
-                $processkey = $inputprocess[0];
-                // If key is in the map, switch to associated full process key
-                if (isset($map[$processkey])) $processkey = $map[$processkey];
-            
-                // Load process
-                if (isset($process_list[$processkey])) {
-                    $processarg = $process_list[$processkey]['argtype'];
-                    
-                    if ($process_list[$processkey]['group']=="Deleted") {
-                        return array('success'=>false, 'message'=>_("Process list contains depreciated process:$processkey, please delete process"));
-                    }
-                    
-                    // remap process back to use map id if available
-                    if (isset($process_list[$processkey]['id_num']))
-                        $processkey = $process_list[$processkey]['id_num'];
-                    
-                } else {
-                    return array('success'=>false, 'message'=>_("Invalid process processid:$processkey"));
-                }
-                
-                // Verify argument
-                $arg = $inputprocess[1];
-                
-                // Check argument against process arg type
-                switch($processarg){
-                
-                    case ProcessArg::FEEDID:
-                        $feedid = (int) $arg;
-                        if (!$this->feed->access($userid,$feedid)) {
-                            return array('success'=>false, 'message'=>_("Invalid feed"));
-                        }
-                        break;
-                        
-                    case ProcessArg::INPUTID:
-                        $inputid = (int) $arg;
-                        if (!$this->access($userid,$inputid)) {
-                            return array('success'=>false, 'message'=>_("Invalid input"));
-                        }
-                        break;
-
-                    case ProcessArg::VALUE:
-                        if (!is_numeric($arg)) {
-                            return array('success'=>false, 'message'=>'Value is not numeric'); 
-                        }
-                        break;
-
-                    case ProcessArg::TEXT:
-                        if (preg_replace('/[^{}\p{N}\p{L}_\s\/.\-]/u','',$arg)!=$arg) 
-                            return array('success'=>false, 'message'=>'Invalid characters in arg'); 
-                        break;
-                                                
-                    case ProcessArg::SCHEDULEID:
-                        $scheduleid = (int) $arg;
-                        if (!$this->schedule_access($userid,$scheduleid)) { // This should really be in the schedule model
-                            return array('success'=>false, 'message'=>'Invalid schedule'); 
-                        }
-                        break;
-                        
-                    case ProcessArg::NONE:
-                        $arg = false;
-                        break;
-                        
-                    default:
-                        $arg = false;
-                        break;
-                }
-                
-                $pairs_out[] = implode(":",array($processkey,$arg));
-            }
-        }
-        
-        // rebuild processlist from verified content
-        $processlist_out = implode(",",$pairs_out);
-    
         $stmt = $this->mysqli->prepare("UPDATE input SET processList=? WHERE id=?");
         $stmt->bind_param("si", $processlist_out, $id);
         if (!$stmt->execute()) {
-            return array('success'=>false, 'message'=>_("Error setting processlist"));
+            return array('success'=>false, 'message'=>tr("Error setting processlist"));
         }
         
         if ($this->mysqli->affected_rows>0){
-            if ($this->redis) $this->redis->hset("input:$id",'processList',$processlist_out);
-            return array('success'=>true, 'message'=>'Input processlist updated');
+            if ($this->redis) {
+                $this->redis->hset("input:$id",'processList',$processlist_out);
+            }
+            return array(
+                'success'=>true, 
+                'message'=>'Input processlist updated',
+                'encoded_processlist'=>$processlist_out
+            );
         } else {
-            return array('success'=>false, 'message'=>'Input processlist was not updated');
+            return array(
+                'success'=>false, 
+                'message'=>'Input processlist was not updated',
+                'encoded_processlist'=>$processlist_out
+            );
+        }
+    }
+                        
+    // Set the processlist with an error found process at the start
+    // This is used to indicate that an error has been found in the process list
+    // At present only triggered if max steps is exceeded
+    public function set_processlist_error_found($input_id) {
+        $input_id = (int) $input_id;
+        
+        // 1. Get the current process list
+        $processlist = $this->get_processlist($input_id);
+        if ($processlist != "") {
+            $processlist_out = "process__error_found:0," . $processlist;
+    
+            // 2. Set the new process list with the error found process at the start
+            $stmt = $this->mysqli->prepare("UPDATE input SET processList=? WHERE id=?");
+            $stmt->bind_param("si", $processlist_out, $input_id);
+            $stmt->execute();
+            if ($this->mysqli->affected_rows>0 && $this->redis) {
+                $this->redis->hset("input:$input_id",'processList',$processlist_out);
+            }
         }
     }
 
@@ -746,16 +770,121 @@ class Input
         }
     }
 
-    private function schedule_access($userid,$scheduleid)
+
+
+    /**
+     * Check if input creation is disabled for a given user.
+     * Returns true if disabled, false otherwise.
+     */
+    public function is_creation_disabled($userid)
     {
         $userid = (int) $userid;
-        $scheduleid = (int) $scheduleid;
-        $stmt = $this->mysqli->prepare("SELECT id FROM schedule WHERE userid=? AND id=?");
-        $stmt->bind_param("ii",$userid,$scheduleid);
-        $stmt->execute();
-        $stmt->bind_result($id);
-        $result = $stmt->fetch();
-        $stmt->close();
-        if ($result && $id>0) return true; else return false;
+
+        try {
+            if ($stmt = $this->mysqli->prepare("SELECT userid FROM input_disable WHERE userid=?")) {
+                $stmt->bind_param("i",$userid);
+                $stmt->execute();
+                $stmt->bind_result($disabled_userid);
+                $result = $stmt->fetch();
+                $stmt->close();
+                if ($result && $disabled_userid>0) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+        } catch (mysqli_sql_exception $e) {
+            // Table does not exist or other SQL error
+            return false;
+        }
+        return false;
+    }
+
+    /**
+     * Disable input creation for a given user.
+     * Returns success or failure array.
+     */
+    public function disable_input_creation($userid)
+    {
+        $userid = (int) $userid;
+
+        $success = array(
+            'success'=>true,
+            'userid'=>$userid,
+            'message'=>'Input creation disabled'
+        );
+        $failure = array(
+            'success'=>false,
+            'userid'=>$userid,
+            'message'=>'Error disabling input creation'
+        );
+
+
+        // First check if already disabled
+        if ($this->is_creation_disabled($userid)) {
+            return $success;
+        }
+
+        try {
+            $now = time();
+            if ($stmt = $this->mysqli->prepare("INSERT INTO input_disable (userid, `time`) VALUES (?,?)")) {
+                $stmt->bind_param("ii",$userid,$now);
+                if ($stmt->execute() && $this->mysqli->affected_rows > 0) {
+                    $stmt->close();
+                    return $success;
+                } else {
+                    $stmt->close();
+                    return $failure;
+                }
+            }
+        } catch (mysqli_sql_exception $e) {
+            // Table does not exist or other SQL error
+            $failure['message'] .= ", please run database update.";
+            return $failure;
+        }
+        return $failure;
+    }
+
+    /**
+     * Enable input creation for a given user.
+     * Returns success or failure array.
+     */
+    public function enable_input_creation($userid)
+    {
+        $userid = (int) $userid;
+
+        $success = array(
+            'success'=>true,
+            'userid'=>$userid,
+            'message'=>'Input creation enabled'
+        );
+        $failure = array(
+            'success'=>false,
+            'userid'=>$userid,
+            'message'=>'Error enabling input creation'
+        );
+
+        // First check if already enabled
+        if (!$this->is_creation_disabled($userid)) {
+            return $success;
+        }
+
+        try {
+            if ($stmt = $this->mysqli->prepare("DELETE FROM input_disable WHERE userid=?")) {
+                $stmt->bind_param("i",$userid);
+                if ($stmt->execute() && $this->mysqli->affected_rows > 0) {
+                    $stmt->close();
+                    return $success;
+                } else {
+                    $stmt->close();
+                    return $failure;
+                }
+            }
+        } catch (mysqli_sql_exception $e) {
+            // Table does not exist or other SQL error
+            $failure['message'] .= ", please run database update.";
+            return $failure;
+        }
+        return $failure;
     }
 }

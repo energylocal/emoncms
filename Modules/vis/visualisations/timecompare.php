@@ -7,6 +7,8 @@
 -->
 
 <?php
+    defined('EMONCMS_EXEC') or die('Restricted access');
+    
     global $path, $vis_version;
     $embed = intval(get("embed"));
     $feedid = intval(get("feedid"));
@@ -18,7 +20,12 @@
 ?>
 
 <!--[if IE]><script language="javascript" type="text/javascript" src="<?php echo $path;?>Lib/flot/excanvas.min.js"></script><![endif]-->
-<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/jquery.flot.merged.js"></script>
+<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/jquery.flot.min.js"></script>
+<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/jquery.flot.selection.min.js"></script>
+<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/jquery.flot.touch.min.js"></script>
+<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/jquery.flot.time.min.js"></script>
+<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/date.format.min.js"></script>
+<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/jquery.flot.canvas.min.js"></script>
 <script language="javascript" type="text/javascript" src="<?php echo $path;?>Lib/flot/jquery.flot.togglelegend.min.js"></script>
 
 <script language="javascript" type="text/javascript" src="<?php echo $path; ?>Modules/feed/feed.js?v=<?php echo $vis_version; ?>"></script>
@@ -44,7 +51,7 @@ var npoints = "<?php echo $npoints; ?>";
 var initzoom = urlParams.initzoom;
 if (initzoom==undefined || initzoom=='' || initzoom < 1) initzoom = '168'; // Initial zoom 7*24=168 hours  (1 week)
 
-$("#timecompare_title").replaceWith('<?php echo _("Time Compare: " . $feedidname); ?>');
+$("#timecompare_title").replaceWith('<?php echo tr("Time Compare: ").$feedidname; ?>');
 timecompare_init("#timecompare");
 vis_feed_data();
 

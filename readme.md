@@ -4,6 +4,12 @@ Emoncms is an open-source web application for processing, logging and visualisin
 
 ![Emoncms](emoncms_graphic.png)
 
+---
+
+### Contributing
+
+***Please read the [project state of development and contributing page](CONTRIBUTING.md) before investing significant development time**. If after reading this you see an oppertunity to make a change, please discuss this with us first in the issue list, via email (hello@openenergymonitor.zendesk.com) or via a call (drop us an email to arrange) before submitting a pull request. The process of development on github can often feel quite impersonal and honestly we are also more than happy to have a call to get to know each other and help refine ideas from the outset - Trystan & Glyn, OpenEnergyMonitor.*
+
 ## Requirements
 
 - PHP (tested with 8.1.12) 
@@ -44,6 +50,7 @@ _*Redis is recommended because it reduces the number of disk writes and therefor
 - [Input processing implementation](docs/design/input-processing.md)
 - [Developing a new Module](docs/design/developing-a-new-module.md)
 - [Global variables in Emoncms](docs/design/global-variables.md)
+- [Translation](scripts/translation/readme.md)
 
 **Emoncms timeseries database design (feed storage)**
 

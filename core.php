@@ -15,24 +15,48 @@
 // no direct access
 defined('EMONCMS_EXEC') or die('Restricted access');
 
-function is_https() {
+/**
+ * Returns true if the TCP connection originates from a trusted proxy —
+ * i.e. localhost or a private (RFC 1918) address. This means forwarded
+ * headers (X-Forwarded-Host, X-Forwarded-Proto, etc.) were set by a local
+ * process such as nginx, a Dataplicity/ngrok tunnel agent, or Home Assistant
+ * ingress — not injected by a remote attacker.
+ */
+function is_trusted_proxy()
+{
+    $remote = isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '';
+    if ($remote === '127.0.0.1' || $remote === '::1') {
+        return true;
+    }
+    // FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE causes
+    // filter_var to return false for private/reserved ranges, true for public.
+    // So a private/loopback address returns false here, meaning is_trusted_proxy() = true.
+    return filter_var(
+        $remote,
+        FILTER_VALIDATE_IP,
+        FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
+    ) === false;
+}
+
+function is_https()
+{
     // Detect if we are running HTTPS or proxied HTTPS
     if (server('HTTPS') == 'on') {
         // Web server is running native HTTPS
         return true;
-    } elseif (server('HTTP_X_FORWARDED_PROTO') == "https") {
-        // Web server is running behind a proxy which is running HTTPS
+    } elseif (is_trusted_proxy() && server('HTTP_X_FORWARDED_PROTO') == "https") {
+        // Web server is running behind a trusted local proxy which is running HTTPS
         return true;
-    } elseif (server('HTTP_X_FORWARDED_PORT') == 443) {
-        // Web server is running behind a proxy which is running HTTPS
+    } elseif (is_trusted_proxy() && server('HTTP_X_FORWARDED_PORT') == 443) {
+        // Web server is running behind a trusted local proxy which is running HTTPS
         return true;   
-    } elseif (request_header('HTTP_X_FORWARDED_PROTO') == "https") {
+    } elseif (is_trusted_proxy() && request_header('HTTP_X_FORWARDED_PROTO') == "https") {
         return true;
     }
     return false;
 }
 
-function get_application_path($manual_domain=false)
+function get_application_path($manual_domain = false)
 {
     if (is_https()) {
         $proto = "https";
@@ -44,8 +68,17 @@ function get_application_path($manual_domain=false)
         return "$proto://".$manual_domain."/";
     }
 
-    if (isset($_SERVER['HTTP_X_FORWARDED_HOST'])) {
-        $path = dirname("$proto://" . server('HTTP_X_FORWARDED_HOST') . server('SCRIPT_NAME')) . "/";
+    if (isset($_SERVER['HTTP_X_FORWARDED_HOST']) && is_trusted_proxy()) {
+        // X-Forwarded-Host is only trusted when the connection comes from a local
+        // proxy (localhost or LAN), e.g. nginx, Dataplicity, ngrok, HA ingress.
+        // A remote attacker cannot spoof this as their REMOTE_ADDR will be public.
+        $filepath = "$proto://" . server('HTTP_X_FORWARDED_HOST');
+        if (isset($_SERVER['HTTP_X_INGRESS_PATH'])) {
+            // web server is running in ingress mode in home assistant
+            $filepath .= server('HTTP_X_INGRESS_PATH');
+        }
+        $filepath .= server('SCRIPT_NAME');
+        $path = dirname($filepath) . "/";
     } else {
         $path = dirname("$proto://" . server('HTTP_HOST') . server('SCRIPT_NAME')) . "/";
     }
@@ -55,13 +88,13 @@ function get_application_path($manual_domain=false)
 
 function db_check($mysqli, $database)
 {
-    $result = $mysqli->query("SELECT count(table_schema) from information_schema.tables WHERE table_schema = '$database'");
-    $row = $result->fetch_array();
-    if ($row['0']>0) {
-        return true;
-    } else {
-        return false;
-    }
+    $stmt = $mysqli->prepare("SELECT count(table_schema) FROM information_schema.tables WHERE table_schema = ?");
+    $stmt->bind_param("s", $database);
+    $stmt->execute();
+    $stmt->bind_result($count);
+    $stmt->fetch();
+    $stmt->close();
+    return $count > 0;
 }
 
 function controller($controller_name)
@@ -93,6 +126,7 @@ function view($filepath, array $args = array())
     $args['path'] = $path;
     $content = '';
     if (file_exists($filepath)) {
+        unset($args['filepath']);
         extract($args);
         ob_start();
         include "$filepath";
@@ -106,7 +140,7 @@ function view($filepath, array $args = array())
  * @param string $index name of $_GET item
  *
  **/
-function get($index,$error_if_missing=false,$default=null)
+function get($index, $error_if_missing = false, $default = null)
 {
     $val = $default;
     if (isset($_GET[$index])) {
@@ -126,7 +160,7 @@ function get($index,$error_if_missing=false,$default=null)
  * @param string $index name of $_POST item
  *
  **/
-function post($index,$error_if_missing=false,$default=null)
+function post($index, $error_if_missing = false, $default = null)
 {
     $val = $default;
     if (isset($_POST[$index])) {
@@ -156,7 +190,7 @@ function post($index,$error_if_missing=false,$default=null)
  * @param string $index name of $_POST or $_GET item
  *
  **/
-function prop($index,$error_if_missing=false,$default=null)
+function prop($index, $error_if_missing = false, $default = null)
 {
     $val = $default;
     if (isset($_GET[$index])) {
@@ -170,7 +204,7 @@ function prop($index,$error_if_missing=false,$default=null)
         die("missing $index parameter");
     }
     
-    if(!is_null($val)) {
+    if (!is_null($val)) {
         if (is_array($val)) {
             $val = array_map("stripslashes", $val);
         }	else {
@@ -182,12 +216,12 @@ function prop($index,$error_if_missing=false,$default=null)
 
 function request_header($index)
 {
-   $val = null;
-   $headers = apache_request_headers();
-   if (isset($headers[$index])) {
+    $val = null;
+    $headers = apache_request_headers();
+    if (isset($headers[$index])) {
         $val = $headers[$index];
-  }
-  return $val;
+    }
+    return $val;
 }
 
 
@@ -286,29 +320,64 @@ function load_db_schema()
  * @param [string] $domain
  * @return void
  */
-function load_language_files($path, $domain = 'messages')
+function load_language_files($path, $context = false)
 {
-    // Load language files for module
-    bind_textdomain_codeset($domain, 'UTF-8');
-    bindtextdomain($domain, $path);
-    textdomain($domain);
+    // Determine current language
+    $lang = isset($GLOBALS['language']) ? $GLOBALS['language'] : 'en_GB'; // Default to English if not set
+
+    // Skip if $lang is en_GB
+    if ($lang == 'en_GB') {
+        // No need to load English translations, they are the default
+        return;
+    }
+
+    //echo "Loading language files for $lang in $path with domain $context<br>";
+
+    // Build path to JSON translation file
+    $json_file = rtrim($path, '/')."/$lang.json";
+    if (file_exists($json_file)) {
+        $translations = json_decode(file_get_contents($json_file), true);
+        if (is_array($translations)) {
+            if (!$context) {
+                // If domain is messages, we can use the translations directly
+                $GLOBALS['translations'] = $translations;
+            } else {
+                // For other context specific translations:
+                if (!isset($GLOBALS['context_translations'])) {
+                    $GLOBALS['context_translations'] = array();
+                }
+                $GLOBALS['context_translations'][$context] = $translations;
+            }
+        }
+    }
+}
+
+function tr($text)
+{
+    return isset($GLOBALS['translations'][$text]) && $GLOBALS['translations'][$text] !== ''
+        ? $GLOBALS['translations'][$text]
+        : $text;
+}
+
+function ctx_tr($context, $text)
+{
+    if ($context && isset($GLOBALS['context_translations'][$context]) && isset($GLOBALS['context_translations'][$context][$text])) {
+        // If context is set and translation exists in context, return it
+        return $GLOBALS['context_translations'][$context][$text];
+    }
+    return $text;
 }
 
 function load_menu()
 {
     global $menu;
     $dir = scandir("Modules");
-    for ($i=2; $i<count($dir); $i++)
-    {
-        if (filetype("Modules/".$dir[$i])=='dir' || filetype("Modules/".$dir[$i])=='link')
-        {
-            if (is_file("Modules/".$dir[$i]."/".$dir[$i]."_menu.php"))
-            {
-                if (is_file("Modules/".$dir[$i]."/locale/".$dir[$i]."_messages.pot")) {
-                    load_language_files("Modules/".$dir[$i]."/locale",$dir[$i]."_messages"); // management of domains beginning with the name of the module
-                } else { 
-                    load_language_files("Modules/".$dir[$i]."/locale");
-                }
+    for ($i=2; $i<count($dir); $i++) {
+        if (filetype("Modules/".$dir[$i])=='dir' || filetype("Modules/".$dir[$i])=='link') {
+            if (is_file("Modules/".$dir[$i]."/".$dir[$i]."_menu.php")) {
+                // Language file gets loaded here but immediately over-written by the next
+                // Perhaps consider some form of caching or a different loading strategy
+                load_language_files("Modules/".$dir[$i]."/locale");
                 require "Modules/".$dir[$i]."/".$dir[$i]."_menu.php";
             }
         }
@@ -335,7 +404,10 @@ function http_request($method, $url, $data)
     $curl = curl_init();
     curl_setopt_array($curl, $options);
     $resp = curl_exec($curl);
-    curl_close($curl);
+    if (PHP_VERSION_ID < 80000) {
+        // phpcs:ignore Generic.PHP.DeprecatedFunctions.Deprecated
+        curl_close($curl);
+    }
     return $resp;
 }
 
@@ -383,10 +455,121 @@ function get_client_ip_env()
 // ---------------------------------------------------------------------------------------------------------
 // Generate secure key
 // ---------------------------------------------------------------------------------------------------------
-function generate_secure_key($length) {
+function generate_secure_key($length)
+{
     if (function_exists('random_bytes')) {
         return bin2hex(random_bytes($length));
     } else {
         return bin2hex(openssl_random_pseudo_bytes($length));
     }
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// Fetch the current session's apikeys, for display on the API documentation pages.
+//
+// Two conditions, both required:
+//
+// 1. The session holds write access. A session authenticated with the read only
+//    apikey has a userid but no write access, and must never be shown the write
+//    key: that would turn read access into write access.
+//
+// 2. The session is an interactive login, not one authenticated with a key.
+//    Keys are account credentials, so they follow the same rule as the rest of
+//    the account actions in user_controller: presenting one key never yields
+//    another. Without this a leaked write key would also hand over the read key.
+//
+// Returns array('logged_in'=>bool, 'read'=>string|false, 'write'=>string|false)
+// ---------------------------------------------------------------------------------------------------------
+function session_apikeys()
+{
+    global $user, $session;
+
+    $keys = array('logged_in'=>false, 'read'=>false, 'write'=>false);
+
+    if (isset($session['write']) && $session['write'] && isset($session['userid']) && $session['userid']>0
+        && empty($session['apikey'])) {
+        $keys['logged_in'] = true;
+        $keys['read'] = $user->get_apikey_read($session['userid']);
+        $keys['write'] = $user->get_apikey_write($session['userid']);
+    }
+
+    return $keys;
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// Is the server side gravatar proxy available, see User::gravatar_enabled()
+//
+// Views call this before emitting an avatar <img>: with the feature off the
+// user/gravatar endpoint responds 404, so the placeholder icon is shown instead
+// of a broken image.
+// ---------------------------------------------------------------------------------------------------------
+function gravatar_enabled()
+{
+    global $user;
+
+    return $user && $user->gravatar_enabled();
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// Generate a 16 bytes (128 bits) UUID - RFC 4122 compliant Version 4
+// ---------------------------------------------------------------------------------------------------------
+function guidv4()
+{
+    if (function_exists('random_bytes')) {
+        $data = random_bytes(16);
+    } else {
+        $data = openssl_random_pseudo_bytes(16);
+    }
+    // Set version to 0100
+    $data[6] = chr(ord($data[6]) & 0x0f | 0x40);
+    // Set bits 6-7 to 10
+    $data[8] = chr(ord($data[8]) & 0x3f | 0x80);
+
+    // Output the 36 character UUID.
+    return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// Load JavaScript and CSS files with optional cache busting based on file modification time
+// ---------------------------------------------------------------------------------------------------------
+function load_js(string $file_path, bool $filemtime = true, $module = false): void {
+    global $path;
+    $version_string = "";
+    if ($filemtime && file_exists($file_path)) {
+        $version_string = "?v=" . filemtime($file_path);
+    }
+    $safe_path = htmlspecialchars($file_path, ENT_QUOTES, 'UTF-8');
+    if ($module) {
+        $module_str = 'type="module"';
+    } else {
+        $module_str = '';
+    }
+    echo '<script '.$module_str.' src="' . $path . $safe_path . $version_string . '"></script>' . "\n";
+}
+
+function load_css(string $file_path, bool $filemtime = true): void {
+    global $path;
+    $version_string = "";
+    if ($filemtime && file_exists($file_path)) {
+        $version_string = "?v=" . filemtime($file_path);
+    }
+    $safe_path = htmlspecialchars($file_path, ENT_QUOTES, 'UTF-8');
+    echo '<link rel="stylesheet" href="' . $path . $safe_path . $version_string . '">' . "\n";
+}
+
+function js_import_map(string $base, array $files): void {
+    global $path;
+    $imports = [];
+    foreach ($files as $file) {
+        $file_path = $base . $file;
+        $version_string = "";
+        if (file_exists($file_path)) {
+            $version_string = "?v=" . filemtime($file_path);
+        }
+        $specifier = $path . $file_path;
+        $url = htmlspecialchars($path . $file_path . $version_string, ENT_QUOTES, 'UTF-8');
+        $imports[$specifier] = $url;
+    }
+    $json = json_encode(['imports' => $imports]);
+    echo "<script type=\"importmap\">{$json}</script>\n";
 }

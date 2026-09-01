@@ -8,12 +8,12 @@ $.ajax({ url: path+"user/gettimezones.json", dataType: 'json', async: true, succ
     app.timezones = result;
 }});
 
-var app = new Vue({
-    el: '#app',
-    data: {
+var app = Vue.createApp({
+    data() { return {
         user: user_data,
         timezones: timezones,
         languages: languages,
+        translation_status: translation_status,
         edit: {
             username: false,
             email: false,
@@ -29,9 +29,36 @@ var app = new Vue({
             current: "",
             new: "",
             repeat: ""
+        },
+        gravatarHash: ''
+    }; },
+    computed: {
+        gravatarUrl: function() {
+            // avatars are served via the local proxy rather than gravatar.com directly,
+            // and the proxy is only available where its cache directory exists
+            if (!gravatar_enabled || !this.gravatarHash) return '';
+            return path + 'user/gravatar?hash=' + this.gravatarHash + '&s=80';
         }
     },
+    watch: {
+        'user.gravatar': function(val) {
+            this._updateGravatarHash(val);
+        }
+    },
+    mounted: function() {
+        this._updateGravatarHash(this.user.gravatar);
+    },
     methods: {
+        _updateGravatarHash: function(email) {
+            var self = this;
+            var normalized = (email || '').trim().toLowerCase();
+            var encoded = new TextEncoder().encode(normalized);
+            crypto.subtle.digest('SHA-256', encoded).then(function(buf) {
+                self.gravatarHash = Array.from(new Uint8Array(buf))
+                    .map(function(b) { return b.toString(16).padStart(2, '0'); })
+                    .join('');
+            });
+        },
         show_edit: function(key) {
             app.edit[key] = true;
         },
@@ -130,7 +157,7 @@ var app = new Vue({
             $('#modalNewApikey').modal('show');
         }
     }
-});
+}).mount('#app');
 
 //QR COde Generation
 var urlCleaned = window.location.href.replace("user/view" ,"");
@@ -168,8 +195,10 @@ $("#logoutdelete").click(function() {
 $("#confirm_generate_apikey").click(function() {
     var type = $("#apikey_type").html();
     $.ajax({ url: path+"user/newapikey"+type+".json", dataType: 'json', success: function(result){
-        app.user['apikey_'+type] = result;
-        $('#modalNewApikey').modal('hide');
+        if (result.success) {
+            app.user['apikey_'+type] = result[type+'_apikey'];
+            $('#modalNewApikey').modal('hide');
+        }
     }});
 });
 
@@ -189,6 +218,14 @@ $(".sidebarcolor").click(function() {
     $("html").removeClass('sidebar-'+current_themesidebar).addClass('sidebar-'+themesidebar);
     localStorage.setItem('themesidebar', themesidebar);
     $(".sidebarcolor[name='"+current_themesidebar+"']").removeClass("color-box-active"); 
-    $(".sidebarcolor[name='"+themesidebar+"']").addClass("color-box-active"); 
+    $(".sidebarcolor[name='"+themesidebar+"']").addClass("color-box-active");
     current_themesidebar = themesidebar
+});
+
+// Archived features toggle, used in conjunction with code in Theme/menu/menu.js
+$("#show-archived").prop("checked", localStorage.getItem('show_archived') === 'true');
+$("#show-archived").change(function() {
+    localStorage.setItem('show_archived', this.checked ? 'true' : 'false');
+    // Reload page
+    window.location.reload();
 });

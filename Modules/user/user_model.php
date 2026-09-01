@@ -14,6 +14,11 @@ defined('EMONCMS_EXEC') or die('Restricted access');
 
 class User
 {
+    // Cache directory for the server side gravatar proxy, alongside the other
+    // emoncms data directories. See gravatar_enabled(): where this does not
+    // exist or is not writable the gravatar feature is disabled.
+    const GRAVATAR_CACHE_DIR = '/var/opt/emoncms/gravatar';
+
     private $mysqli;
     private $rememberme;
     private $enable_rememberme = false;
@@ -22,6 +27,9 @@ class User
     private $log;
     public $appname;
 
+    private $ui_read_only_mode = false;
+    private $disable_rate_limiting = false;
+
     public function __construct($mysqli,$redis)
     {
         //copy the settings value, otherwise the enable_rememberme will always be false.
@@ -29,14 +37,20 @@ class User
         $this->enable_rememberme = $settings["interface"]["enable_rememberme"];
         $this->email_verification = $settings["interface"]["email_verification"];
         $this->appname = $settings["interface"]["appname"];
+        $this->ui_read_only_mode = isset($settings["ui_read_only_mode"]) ? $settings["ui_read_only_mode"] : false;
+        $this->disable_rate_limiting = !empty($settings["interface"]["disable_rate_limiting"]);
 
         $this->mysqli = $mysqli;
 
-        require "Modules/user/rememberme_model.php";
+        require_once "Modules/user/rememberme_model.php";
         $this->rememberme = new Rememberme($mysqli);
 
         $this->redis = $redis;
         $this->log = new EmonLogger(__FILE__);
+    }
+    
+    public function set_email_verification($email_verification) {
+        $this->email_verification = $email_verification;
     }
 
     //---------------------------------------------------------------------------------------
@@ -47,8 +61,8 @@ class User
     {
         $session = array();
         
-        // 1. Only allow alphanumeric characters
-        // if (!ctype_alnum($apikey_in)) return $session;
+        // 1. Only allow hexadecimal characters (keys are produced by bin2hex)
+        if (!ctype_xdigit($apikey_in)) return $session;
         
         // 2. Only allow 32 character length
         if (strlen($apikey_in)!=32) return array();
@@ -69,6 +83,7 @@ class User
                 $session['gravatar'] = '';
                 $session['public_userid'] = 0;
                 $session['public_username'] = "";
+                $session['apikey'] = 1;       // authenticated with an apikey rather than an interactive login
                 return $session;
             }
             
@@ -82,6 +97,7 @@ class User
                 $session['gravatar'] = '';
                 $session['public_userid'] = 0;
                 $session['public_username'] = "";
+                $session['apikey'] = 1;       // authenticated with an apikey rather than an interactive login
                 return $session;
             }
         }*/
@@ -105,7 +121,8 @@ class User
             $session['username'] = $username;
             $session['gravatar'] = '';
             $session['public_userid'] = 0;
-            $session['public_username'] = "";     
+            $session['public_username'] = "";
+            $session['apikey'] = 1;       // authenticated with an apikey rather than an interactive login
             if ($this->redis) $this->redis->set("writeapikey:$apikey_in",$id);
             return $session;
         }
@@ -126,7 +143,8 @@ class User
             $session['username'] = $username;
             $session['gravatar'] = '';
             $session['public_userid'] = 0;
-            $session['public_username'] = "";       
+            $session['public_username'] = "";
+            $session['apikey'] = 1;       // authenticated with an apikey rather than an interactive login
             if ($this->redis) $this->redis->set("readapikey:$apikey_in",$id);
             return $session;
         }
@@ -137,7 +155,7 @@ class User
     public function get_id_from_apikey($apikey_in) 
     {
         if (strlen($apikey_in)!=32) return false;
-        // if (!ctype_alnum($apikey_in)) return false;
+        if (!ctype_xdigit($apikey_in)) return false;
         
         $stmt = $this->mysqli->prepare("SELECT id FROM users WHERE apikey_read=? OR apikey_write=?");
         $stmt->bind_param("ss",$apikey_in,$apikey_in);
@@ -146,6 +164,37 @@ class User
         $stmt->fetch();
         $stmt->close();
         return $id;
+    }
+
+    public function get_uuid($userid)
+    {       
+        $userid = (int) $userid;
+        // return unique id associated to user and generate if missing
+        $request = "SELECT uuid FROM users WHERE `id` = '$userid'";
+        try {
+            $result = $this->mysqli->query($request);
+        } catch (Exception $e) {
+            $message = "PLEASE UPDATE THE DATABASE STRUCTURE IN THE ADMIN MODULE !!";
+            $this->log->error("exception $e - $message");
+            return array('success'=>false, 'message'=>$message);
+        }
+        if ($row = $result->fetch_object()) {
+            if (!($row->uuid)) {
+                $uuid = guidv4();
+                $stmt = $this->mysqli->prepare("UPDATE users SET uuid = ? WHERE id = ?");
+                $stmt->bind_param("si", $uuid, $userid);
+                if (!$stmt->execute()) {
+                    $error = $this->mysqli->error;
+                    $this->log->error($error);
+                    $stmt->close();
+                    return array('success'=>false, 'message'=>"ERROR COULD NOT SAVE UUID");
+                }
+                $stmt->close();
+            } else {
+                $uuid = $row->uuid;
+            }
+            return array('success'=>true, 'message'=>$uuid);
+        }
     }
 
     public function emon_session_start()
@@ -210,6 +259,9 @@ class User
                         $userData = $result->fetch_object();
                         if ($userData->id != 0)
                         {
+                            // Regenerate session ID when logging in via remember-me token
+                            session_regenerate_id(true);
+
                             $_SESSION['userid'] = $userData->id;
                             $_SESSION['username'] = $userData->username;
                             $_SESSION['read'] = 1;
@@ -224,9 +276,9 @@ class User
                         }
                     }
                 } else {
-                    // if($this->rememberme->loginTokenWasInvalid()) {
-                    //    $this->logout(); // Stolen
-                    // }
+                    if($this->rememberme->loginTokenWasInvalid()) {
+                        $this->logout(); // Stolen
+                    }
                 }
             }
         }
@@ -247,26 +299,44 @@ class User
         $session['public_userid'] = 0;
         $session['public_username'] = "";
 
+        // Read only mode
+        if ($this->ui_read_only_mode) {
+            if (!$session['admin'] && $session['write']) $session['write'] = 0;
+        }
+
         return $session;
     }
 
 
     public function register($username, $password, $email, $timezone)
     {
+        if ($this->ui_read_only_mode) {
+            return array('success'=>false, 'message'=>tr("System is in read-only mode"));
+        }
+
+        if ($this->is_rate_limited('register', 5, 600)) return array('success'=>false, 'message'=>tr("Too many attempts, please try again later"));
+
         // Input validation, sanitisation and error reporting
-        if (!$username || !$password || !$email) return array('success'=>false, 'message'=>_("Missing username, password or email parameter"));
-        if (!ctype_alnum($username)) return array('success'=>false, 'message'=>_("Username must only contain a-z and 0-9 characters"));
-        if ($this->get_id($username) != 0) return array('success'=>false, 'message'=>_("Username already exists"));
+        if (!$username || !$password || !$email) return array('success'=>false, 'message'=>tr("Missing username, password or email parameter"));
 
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) return array('success'=>false, 'message'=>_("Email address format error"));
+        $result = $this->is_valid_username($username);
+        if (!$result['success']) return $result;
 
-        if (strlen($username) < 3 || strlen($username) > 30) return array('success'=>false, 'message'=>_("Username length error"));
-        if (strlen($password) < 4 || strlen($password) > 250) return array('success'=>false, 'message'=>_("Password length error"));
+        // Check if username already exists
+        if ($this->get_id($username) != 0) return array('success'=>false, 'message'=>tr("Username already exists"));
+
+        $result = $this->is_valid_email($email);
+        if (!$result['success']) return $result;
+
+        $result = $this->is_valid_password($password);
+        if (!$result['success']) return $result;
         
         if (!$this->timezone_valid($timezone)) {
             // use default UTC timezone if timezone is not valid
             $timezone = "UTC";
         }
+
+        // -------------------------------------------
 
         // If we got here the username, password and email should all be valid
 
@@ -276,13 +346,15 @@ class User
 
         $apikey_write = generate_secure_key(16);
         $apikey_read = generate_secure_key(16);
+        $uuid = guidv4();
 
-        $stmt = $this->mysqli->prepare("INSERT INTO users ( username, password, email, salt ,apikey_read, apikey_write, timezone, admin) VALUES (?,?,?,?,?,?,?,0)");
-        $stmt->bind_param("sssssss", $username, $password, $email, $salt, $apikey_read, $apikey_write, $timezone);
+        $stmt = $this->mysqli->prepare("INSERT INTO users ( username, password, email, salt ,apikey_read, apikey_write, timezone, uuid, admin) VALUES (?,?,?,?,?,?,?,?,0)");
+        $stmt->bind_param("ssssssss", $username, $password, $email, $salt, $apikey_read, $apikey_write, $timezone, $uuid);
         if (!$stmt->execute()) {
             $error = $this->mysqli->error;
+            $this->log->error("register: failed to create user username:$username error:$error");
             $stmt->close();
-            return array('success'=>false, 'message'=>_("Error creating user, mysql error: ".$error));
+            return array('success'=>false, 'message'=>tr("Error creating user"));
         }
 
         // Make the first user an admin
@@ -293,7 +365,7 @@ class User
         // Email verification
         if ($this->email_verification) {
             $result = $this->send_verification_email($username);
-            if ($result['success']) return array('success'=>true, 'verifyemail'=>true, 'message'=>"Email verification email sent, please check your inbox");
+            if ($result['success']) return array('success'=>true, 'userid'=>$userid, 'verifyemail'=>true, 'message'=>"Email verification email sent, please check your inbox");
         } else {
             return array('success'=>true, 'verifyemail'=>false, 'userid'=>$userid, 'apikey_read'=>$apikey_read, 'apikey_write'=>$apikey_write);
         }        
@@ -301,12 +373,12 @@ class User
     
     public function send_verification_email($username)
     {
-        // check for valid username format
-        if (preg_replace('/[^\p{N}\p{L}_.\s\-]/u','',$username)!=$username) return array('success'=>false, 'message'=>_("Invalid username"));
+        $result = $this->is_valid_username($username);
+        if (!$result['success']) return $result;
 
         // check that username exists and load email and verification status
         if (!$stmt = $this->mysqli->prepare("SELECT id,email,email_verified FROM users WHERE username=?")) {
-            return array('success'=>false, 'message'=>_("Database error, you may need to run database update"));
+            return array('success'=>false, 'message'=>tr("Database error, you may need to run database update"));
         }
         $stmt->bind_param("s",$username);
         $stmt->execute();
@@ -315,10 +387,10 @@ class User
         $result = $stmt->fetch();
         $stmt->close();
         
-        // exit if user does not exist
-        if (!$result || $id<1) return array('success'=>false, 'message'=>_("Username does not exist"));
+        // exit if user does not exist, normalize to same message as invalid verification key to prevent username enumeration
+        if (!$result || $id<1) return array('success'=>true, 'message'=>tr("Email verification email sent, please check your inbox"));
         // exit if account is already verified
-        if ($email_verified) return array('success'=>false, 'message'=>_("Email already verified"));
+        if ($email_verified) return array('success'=>true, 'message'=>tr("Email verification email sent, please check your inbox"));
         
         // Create new verification key
         $verification_key = generate_secure_key(32);
@@ -330,7 +402,7 @@ class User
         
         // Send verification email
         global $path;
-        $verification_link = $path."user/verify?email=".urlencode($email)."&key=$verification_key";
+        $verification_link = $path."user/verify?key=$verification_key";
         
         // $this->redis->rpush("emailqueue",json_encode(array(
         //    "emailto"=>$email,
@@ -351,86 +423,108 @@ class User
             $this->log->info("Email sent to $email");
         }
         
-        return array('success'=>true, 'message'=>_("Email verification email sent, please check your inbox"));
+        return array('success'=>true, 'message'=>tr("Email verification email sent, please check your inbox"));
     }
     
-    public function verify_email($email,$verification_key)
+    public function verify_email($verification_key)
     {
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) return array('success'=>false, 'message'=>_("Email address format error"));
-        if (strlen($verification_key)!=64) return array('success'=>false, 'message'=>_("Invalid verification key"));
+        if (strlen($verification_key)!=64) return array('success'=>false, 'message'=>tr("Invalid verification key"));
+        if (!ctype_xdigit($verification_key)) return array('success'=>false, 'message'=>tr("Invalid verification key"));
         
-        $stmt = $this->mysqli->prepare("SELECT id,email_verified FROM users WHERE email=? AND verification_key=?");
-        $stmt->bind_param("ss",$email,$verification_key);
+        $stmt = $this->mysqli->prepare("SELECT id,email_verified FROM users WHERE verification_key=?");
+        $stmt->bind_param("s",$verification_key);
         $stmt->execute();
         $stmt->bind_result($id,$email_verified);
         $result = $stmt->fetch();
         $stmt->close();
+        $userid = (int) $id;
         
-        if ($result && $id>0) {
-            if ($email_verified==0) {
-                $stmt = $this->mysqli->prepare("UPDATE users SET email_verified='1' WHERE id=?");
-                $stmt->bind_param("i",$id);
-                $stmt->execute();
-                $stmt->close();
-                return array('success'=>true, 'message'=>"Email verified");
-            } else {
-                return array('success'=>false, 'message'=>"Email already verified");
-            }
-        }
+        // Exit if verification key is invalid or user does not exist, normalize to same message as already verified to prevent enumeration
+        if (!$result || $userid<1) return array('success'=>false, 'message'=>tr("Invalid verification key"));
         
-        return array('success'=>false, 'message'=>"Invalid email or verification key");
+        // If email is already verified then exit with error
+        if ($email_verified) return array('success'=>false, 'message'=>tr("Email already verified"));
+
+        // Else if we are here: verification key is valid, email is not yet verified, so verify email
+        $stmt = $this->mysqli->prepare("UPDATE users SET email_verified='1' WHERE id=?");
+        $stmt->bind_param("i",$userid);
+        $stmt->execute();
+        $stmt->close();
+
+        // Return success message
+        return array('success'=>true, 'message'=>"Email verified", "userid"=>$id);
+
     }
 
     public function login($username_or_email, $password, $remembermecheck, $referrer='')
     {
+        // Rate limit login attempts to prevent brute force attacks. Limit to 10 attempts in 15 minutes.
+        if ($this->is_rate_limited('login', 10, 900)) return array('success'=>false, 'message'=>tr("Too many attempts, please try again later"));
+
+        // Basic checks
         $remembermecheck = (int) $remembermecheck;
+        if (!$username || !$password) return array('success'=>false, 'message'=>tr("Username or password empty"));
 
-        if (!$username_or_email || !$password) return array('success'=>false, 'message'=>_("Username or password empty"));
-
-        if (!$stmt = $this->mysqli->prepare("SELECT id FROM users WHERE username=? OR email=?")) {
-            return array('success'=>false, 'message'=>_("Database error, you may need to run database update"));
-        }
+        $result = $this->is_valid_username($username);
+        if (!$result['success']) return $result;
         $stmt->bind_param("ss",$username_or_email,$username_or_email);
         $stmt->execute();
         $stmt->bind_result($userid);
         $result = $stmt->fetch();
         $stmt->close();
-        
-        if (!$userid) {
+
+        // Dont go further if username does not exist.
             $this->log->error("Login: Username does not exist username:$username_or_email ip:".get_client_ip_env());
-            return array('success'=>false, 'message'=>_("Username does not exist"));
+            return array('success'=>false, 'message'=>tr("Incorrect username or password"));
         }
         
+        // Fetch the user
+        $userid = (int) $userid;
         $result = $this->mysqli->query("SELECT * FROM users WHERE id = '$userid'");
-        if (!$result) return array('success'=>false, 'message'=>_("Database error"));
-        
+        if (!$result) return array('success'=>false, 'message'=>tr("Database error"));
         $userData = $result->fetch_object();
         
-        if ($this->email_verification && isset($userData->email_verified) && !$userData->email_verified) return array('success'=>false, 'message'=>_("Please verify email address"));
+        // If email verification is required and email is not verified then dont allow login
+        if ($this->email_verification && isset($userData->email_verified) && !$userData->email_verified) return array('success'=>false, 'message'=>tr("Please verify email address"));
         
+        // Check password
         $hash = hash('sha256', $userData->salt . hash('sha256', $password));
-
         if ($hash != $userData->password)
         {
             $this->log->error("Login: Incorrect password username:$username_or_email ip:".get_client_ip_env());
-            return array('success'=>false, 'message'=>_("Incorrect password"));
+            return array('success'=>false, 'message'=>tr("Incorrect username or password"));
         }
         else
         {
-            //--------------------------------------------------------------------
-            include "Modules/remoteaccess/remoteaccess_userlink.php";
-            $result = remoteaccess_userlink_existing($this->mysqli,$userid);
-            if (!isset($result["success"]) || !$result["success"]) return $result;
-            //--------------------------------------------------------------------
-            session_regenerate_id();
+            // Default write access
+            if (!isset($userData->access)) $userData->access = 2;
+
+            // If no access via login
+            if ($userData->access==0) {
+                return array('success'=>false, 'message'=>tr("Login disabled for this account"));
+            }
+        
+            // Ensure session is active before regenerating
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
+
+            $this->update_last_active($userData->id);            
+        
+            session_regenerate_id(true);
             $_SESSION['userid'] = $userData->id;
             $_SESSION['username'] = $userData->username;
-            $_SESSION['password'] = $password;
-            $_SESSION['read'] = 1;
-            $_SESSION['write'] = 1;
-            $_SESSION['admin'] = $userData->admin;
+            
+            if ($userData->access>0) { 
+                $_SESSION['read'] = 1;
+            }
+            if ($userData->access>1) {
+                $_SESSION['write'] = 1;
+                $_SESSION['admin'] = $userData->admin;
+            }
             $_SESSION['lang'] = $userData->language;
             $_SESSION['timezone'] = $userData->timezone;
+            $_SESSION['emailverified'] = $userData->email_verified;
             $_SESSION['startingpage'] = $userData->startingpage;
             $_SESSION['gravatar'] = $userData->gravatar;
 
@@ -438,7 +532,7 @@ class User
                 if ($remembermecheck==true) {
                     if (!$this->rememberme->createCookie($userData->id)) {
                         $this->logout();
-                        return array('success'=>false, 'message'=>_("Error creating rememberme cookie, try login without rememberme"));
+                        return array('success'=>false, 'message'=>tr("Error creating rememberme cookie, try login without rememberme and then a database update"));
                     }
                 } else {
                     $this->rememberme->clearCookie();
@@ -447,8 +541,11 @@ class User
 
             if ($this->redis) $this->redis->hmset("user:".$userData->id,array('apikey_write'=>$userData->apikey_write));
 
-            if(!empty($referrer)) $userData->startingpage = urldecode($referrer);
-            return array('success'=>true, 'message'=>_("Login successful"), 'startingpage'=>$userData->startingpage);
+            $safe_referrer = $this->validate_referrer($referrer);
+            if ($safe_referrer !== '') {
+                $userData->startingpage = $safe_referrer;
+            }
+            return array('success'=>true, 'message'=>tr("Login successful"), 'startingpage'=>$userData->startingpage);
         }
     }
 
@@ -457,9 +554,12 @@ class User
 
     public function get_apikeys_from_login($username_or_email, $password)
     {
-        if (!$username_or_email || !$password) return array('success'=>false, 'message'=>_("Username or password empty"));
-        // $username_out = preg_replace('/[^\p{N}\p{L}_.\s\-]/u','',$username);
-        // if ($username_out!=$username) return array('success'=>false, 'message'=>_("Username must only contain a-z 0-9 dash and underscore"));
+        if ($this->is_rate_limited('auth', 10, 900)) return array('success'=>false, 'message'=>tr("Too many attempts, please try again later"));
+
+        if (!$username || !$password) return array('success'=>false, 'message'=>tr("Username or password empty"));
+
+        $result = $this->is_valid_username($username);
+        if (!$result['success']) return $result;
 
         $stmt = $this->mysqli->prepare("SELECT id,password,salt,apikey_write,apikey_read FROM users WHERE username=? OR email=?");
         $stmt->bind_param("ss",$username_or_email,$username_or_email);
@@ -475,13 +575,13 @@ class User
         if (!$result) {
             $ip_address = get_client_ip_env();
             $this->log->error("get_apikeys_from_login: Incorrect authentication:$username ip:$ip_address");
-            return array('success'=>false, 'message'=>_("Incorrect authentication"));
+            return array('success'=>false, 'message'=>tr("Incorrect authentication"));
         }
        
         $hash = hash('sha256', $userData_salt . hash('sha256', $password));
 
         if ($hash != $userData_password) {
-            return array('success'=>false, 'message'=>_("Incorrect authentication"));
+            return array('success'=>false, 'message'=>tr("Incorrect authentication"));
         } else {
             return array('success'=>true, 'userid'=>$userData_id, 'apikey_write'=>$userData_apikey_write, 'apikey_read'=>$userData_apikey_read);
         }
@@ -498,9 +598,15 @@ class User
 
     public function change_password($userid, $old, $new)
     {
+        if ($this->is_rate_limited('changepassword', 5, 900)) return array('success'=>false, 'message'=>tr("Too many attempts, please try again later"));
+
         $userid = (int) $userid;
 
-        if (strlen($new) < 4 || strlen($new) > 250) return array('success'=>false, 'message'=>_("Password length error"));
+        $result = $this->is_valid_password($old);
+        if (!$result['success']) return $result;
+
+        $result = $this->is_valid_password($new);
+        if (!$result['success']) return $result;
 
         // 1) check that old password is correct
         $result = $this->mysqli->query("SELECT password, salt FROM users WHERE id = '$userid'");
@@ -519,22 +625,24 @@ class User
             $stmt->execute();
             $stmt->close();
             
-            return array('success'=>true, 'message'=>_("Password updated successfully"));
+            return array('success'=>true, 'message'=>tr("Password updated successfully"));
         }
         else
         {
             $ip_address = get_client_ip_env();
             $this->log->error("change_password: old password incorect ip:$ip_address");
-            return array('success'=>false, 'message'=>_("Old password incorect"));
+            return array('success'=>false, 'message'=>tr("Old password incorect"));
         }
     }
 
     public function passwordreset_generation($username, $emailto, $base_url) {
         $this->log->info("passwordreset_generation($username, $emailto, $base_url);");
-        // cleaning up expired tokens from database
-        $stmt = $this->mysqli->prepare("DELETE FROM password_reset_tokens WHERE expiry_time < NOW()");
-        $stmt->execute();
-        $stmt->close();
+        if ($this->is_rate_limited('passwordreset', 3, 900)) return array('success'=>false, 'message'=>tr("Too many attempts, please try again later"));
+
+        $result = $this->is_valid_username($username);
+        if (!$result['success']) return $result;
+        $result = $this->is_valid_email($emailto);
+        if (!$result['success']) return $result;
         
         if (is_array($username)) {
             if ($username['user_not_found']) {
@@ -548,7 +656,7 @@ class User
         if (!filter_var($emailto, FILTER_VALIDATE_EMAIL)) return array('success'=>false, 'message'=>_("Email address format error"));
         // check that there is a match for username + email
         $stmt = $this->mysqli->prepare("SELECT id FROM users WHERE username=? AND email=?");
-        $stmt->bind_param("ss",$username_out,$emailto);
+        $stmt->bind_param("ss",$username,$emailto);
         $stmt->execute();
         $stmt->bind_result($userid);
         $stmt->fetch();
@@ -586,19 +694,18 @@ class User
         $result = $email->send();
         if (!$result['success']) {
             $this->log->error("Email send returned error. emailto=" . $emailto . " message='" . $result['message'] . "'");
-            return array('success'=>false, 'message'=>$result['message']);
+                    return array('success'=>false, 'message'=>$result['message']);
         }
         $this->log->info("Email sent to $emailto");
-        
+                    // Save password and salt only after email is confirmed sent
         return array('success'=>true, 'message'=>"Password recovery email sent!", 'reset_disabled'=>false, 'invalid_user_email'=>false);
 
-    }
-
-    public function passwordreset_check_token($token) {
-        // check that the token is valid and has not expired
-        $stmt = $this->mysqli->prepare("SELECT userid, (expiry_time > NOW()) AS valid FROM password_reset_tokens WHERE token=?");
+                    if (!$stmt->execute()) {
+                        $this->log->error("passwordreset: failed to save new password for userid:$userid error:" . $this->mysqli->error);
+                        $stmt->close();
+                        return array('success'=>false, 'message'=>"Error saving new password");
+                    }
         $stmt->bind_param("s",$token);
-        $stmt->execute();
         $stmt->bind_result($userid, $token_validity);
         $stmt->fetch(); 
         // if token is valid, return user id
@@ -664,19 +771,21 @@ class User
             }   
 
         } else {
-            return array('success'=>false, 'message'=>"Token not found!", 'duplicate'=>false);
+            // Return the same response as a successful send to prevent username/email enumeration
+            $this->log->info("passwordreset: no account matched username:$username emailto:$emailto ip:".get_client_ip_env());
+            return array('success'=>true, 'message'=>"Password recovery email sent!");
         }
     }
     
 
     public function change_username($userid, $username)
     {
-        if (isset($_SESSION['cookielogin']) && $_SESSION['cookielogin']==true) return array('success'=>false, 'message'=>_("As you are using a cookie based remember me login, please logout and log back in to change username"));
+        if (isset($_SESSION['cookielogin']) && $_SESSION['cookielogin']==true) return array('success'=>false, 'message'=>tr("As you are using a cookie based remember me login, please logout and log back in to change username"));
 
         $userid = (int) $userid;
-        if (strlen($username) < 3 || strlen($username) > 30) return array('success'=>false, 'message'=>_("Username length error"));
 
-        if (!ctype_alnum($username)) return array('success'=>false, 'message'=>_("Username must only contain a-z and 0-9 characters"));
+        $result = $this->is_valid_username($username);
+        if (!$result['success']) return $result;
 
         $userid_from_username = $this->get_id($username);
 
@@ -686,36 +795,43 @@ class User
             $stmt->bind_param("si", $username, $userid);
             $stmt->execute();
             $stmt->close();
-            return array('success'=>true, 'message'=>_("Username updated"));
+            return array('success'=>true, 'message'=>tr("Username updated"));
         }
         else
         {
-            return array('success'=>false, 'message'=>_("Username already exists"));
+            return array('success'=>false, 'message'=>tr("Username already exists"));
         }
     }
 
     public function change_email($userid, $email)
     {
-        if (isset($_SESSION['cookielogin']) && $_SESSION['cookielogin']==true) return array('success'=>false, 'message'=>_("As you are using a cookie based remember me login, please logout and log back in to change email"));
+        if (isset($_SESSION['cookielogin']) && $_SESSION['cookielogin']==true) return array('success'=>false, 'message'=>tr("As you are using a cookie based remember me login, please logout and log back in to change email"));
 
         $userid = (int) $userid;
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) return array('success'=>false, 'message'=>_("Email address format error"));
+
+        $result = $this->is_valid_email($email);
+        if (!$result['success']) return $result;
 
         $stmt = $this->mysqli->prepare("UPDATE users SET email = ? WHERE id = ?");
         $stmt->bind_param("si", $email, $userid);
         $stmt->execute();
         $stmt->close();
-
-        // $stmt = $this->mysqli->prepare("UPDATE users SET email_verified='0' WHERE id = ?");
-        // $stmt->bind_param("i", $userid);
-        // $stmt->execute();
-        // $stmt->close();
         
-        // global $session;
-        // $session['emailverified'] = 0;
-        // $_SESSION['emailverified'] = 0;
+	/*
+        global $session;
         
-        return array('success'=>true, 'message'=>_("Email updated"));
+        if (!$session['admin']) {
+            $stmt = $this->mysqli->prepare("UPDATE users SET email_verified='0' WHERE id = ?");
+            $stmt->bind_param("i", $userid);
+            $stmt->execute();
+            $stmt->close();
+        }
+        
+        $session['emailverified'] = 0;
+        $_SESSION['emailverified'] = 0;
+	*/
+        
+        return array('success'=>true, 'message'=>tr("Email updated"));
     }
 
     //---------------------------------------------------------------------------------------
@@ -725,8 +841,11 @@ class User
     {
         $userid = (int) $userid;
         $result = $this->mysqli->query("SELECT username FROM users WHERE id = '$userid';");
-        $row = $result->fetch_array();
-        return $row['username'];
+        if ($row = $result->fetch_array()) {
+            return $row['username'];
+        } else {
+            return false;
+        }
     }
 
     public function get_name($userid)
@@ -815,8 +934,15 @@ class User
     
     public function timezone_valid($_timezone) 
     {
+        // timezone length check
+        if (strlen($_timezone) < 3 || strlen($_timezone) > 50) return false;
+        
+        // timezone character check
+        if (!preg_match('/^[\w\-.\/_]+$/', $_timezone)) return false;
+
+        // whitelist check against supported PHP timezones
         foreach (DateTimeZone::listIdentifiers() as $timezone) {
-            if ($timezone==$_timezone) return true;
+            if ($timezone===$_timezone) return true;
         }
         return false;
     }
@@ -856,21 +982,49 @@ class User
     //---------------------------------------------------------------------------------------
     public function set_user_lang($userid, $lang)
     {   
+        $userid = (int) $userid;
+        $lang = preg_replace('/[^\w\s\-.]/','',$lang);
+
         $stmt = $this->mysqli->prepare("UPDATE users SET language = ? WHERE id = ?");
         $stmt->bind_param("si", $lang, $userid);
         $stmt->execute();
         $stmt->close();
+
+        return array('success'=>true, 'message'=>"Language updated");
     }
 
     public function set_timezone($userid,$timezone)
     {
         $userid = (int) $userid;
-        $timezone = preg_replace('/[^\w\-.\\/_]/','',$timezone);
-        
+
+        if (!$this->timezone_valid($timezone)) {
+            return array('success'=>false, 'message'=>"Invalid timezone");
+        }
+
         $stmt = $this->mysqli->prepare("UPDATE users SET timezone = ? WHERE id = ?");
         $stmt->bind_param("si", $timezone, $userid);
         $stmt->execute();
         $stmt->close();
+
+        return array('success'=>true, 'message'=>"Timezone updated");
+    }
+    
+    //---------------------------------------------------------------------------------------
+    // Access
+    //---------------------------------------------------------------------------------------
+    public function set_access($userid, $access) {
+        $userid = (int) $userid;
+        $access = (int) $access;
+        $this->mysqli->query("UPDATE users SET `access`='$access' WHERE `id`='$userid'");
+
+        return array('success'=>true, 'message'=>"Access updated");
+    }
+    
+    public function get_access($userid) {
+        $userid = (int) $userid;
+        $result = $this->mysqli->query("SELECT `access` FROM users WHERE `id`='$userid'");
+        $data = $result->fetch_object();
+        return $data->access;
     }
 
     //---------------------------------------------------------------------------------------
@@ -922,16 +1076,16 @@ class User
         $default_timezone = 'Europe/London';
         // Validation
         $userid = (int) $userid;
-        if(!$data || $userid < 1) return array('success'=>false, 'message'=>_("Error updating user info"));
+        if(!$data || $userid < 1) return array('success'=>false, 'message'=>tr("Error updating user info"));
 
-        $gravatar = preg_replace('/[^\w\s\-.@]/','',$data->gravatar);
-        $name = preg_replace('/[^\p{N}\p{L}_\s\-.]/u','',$data->name);
-        $location = preg_replace('/[^\p{N}\p{L}_\s\-.]/u','',$data->location);
-        $timezone = preg_replace('/[^\w\-.\\/_]/','',$data->timezone);
-        $bio = preg_replace('/[^\p{N}\p{L}_\s\-.]/u','',$data->bio);
-        $language = preg_replace('/[^\w\s\-.]/','',$data->language);
-        $tags = isset($data->tags) == false ? '' : preg_replace('/[^{}",:\w\s\-.]/','', $data->tags);
-        $startingpage = preg_replace('/[^\p{N}\p{L}_\s\-?#=\/]/u','',$data->startingpage);
+        $gravatar = isset($data->gravatar) && $data->gravatar !== null ? preg_replace('/[^\w\s\-.@]/','',$data->gravatar) : '';
+        $name = isset($data->name) && $data->name !== null ? preg_replace('/[^\p{N}\p{L}_\s\-.]/u','',$data->name) : '';
+        $location = isset($data->location) && $data->location !== null ? preg_replace('/[^\p{N}\p{L}_\s\-.]/u','',$data->location) : '';
+        $timezone = isset($data->timezone) && $data->timezone !== null ? preg_replace('/[^\w\-.\\/_]/','',$data->timezone) : '';
+        $bio = isset($data->bio) && $data->bio !== null ? preg_replace('/[^\p{N}\p{L}_\s\-.]/u','',$data->bio) : '';
+        $language = isset($data->language) && $data->language !== null ? preg_replace('/[^\w\s\-.]/','',$data->language) : '';
+        $tags = isset($data->tags) && $data->tags !== null ? preg_replace('/[^{}",:\w\s\-.]/','', $data->tags) : '';
+        $startingpage = isset($data->startingpage) && $data->startingpage !== null ? preg_replace('/[^\p{N}\p{L}_\s\-?#=\/]/u','',$data->startingpage) : '';
         
         $_SESSION['lang'] = !empty($language) ? $language : $default_locale;
         $_SESSION['timezone'] = !empty($timezone) ? $timezone : $default_timezone;
@@ -941,9 +1095,11 @@ class User
         $stmt->bind_param("ssssssssi", $gravatar, $name, $location, $timezone, $language, $bio, $startingpage, $tags, $userid);
         if (!$stmt->execute()) {
             $stmt->close();
-            return array('success'=>false, 'message'=>_("Error updating user info"));
+            return array('success'=>false, 'message'=>tr("Error updating user info"));
         }
         $stmt->close();
+
+        return array('success'=>true, 'message'=>_("User info updated"));
     }
 
     // Generates a new random read apikey
@@ -957,7 +1113,7 @@ class User
         $stmt->execute();
         $stmt->close();
         
-        return $apikey;
+        return array('success'=>true, 'read_apikey'=>$apikey);
     }
 
     // Generates a new random write apikey
@@ -970,13 +1126,12 @@ class User
         $stmt->bind_param("si", $apikey, $userid);
         $stmt->execute();
         $stmt->close();
-        
-        include "Modules/remoteaccess/remoteaccess_userlink.php";
+
+        return array('success'=>true, 'write_apikey'=>$apikey);
         $result = remoteaccess_userlink_existing($this->mysqli,$userid);
         if (!$result) {
           throw new Exception("Failed to update hash after generating new apikey_write");
         }
-        return $apikey;
     }
 
     public function get_number_of_users()
@@ -1000,7 +1155,9 @@ class User
     }
     
     public function get_usernames_by_email($email) {
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) return false;
+        $result = $this->is_valid_email($email);
+        if (!$result['success']) return false;
+        
         $stmt = $this->mysqli->prepare("SELECT id, username FROM users WHERE email=?");
         $stmt->bind_param("s", $email);
         $stmt->execute();        
@@ -1018,6 +1175,133 @@ class User
 	
         return $users;
     }
+
+
+    /**
+     * Is the server side gravatar proxy available on this install?
+     *
+     * The cache directory is deliberately not created here: it is provisioned by
+     * packaging alongside the other /var/opt/emoncms data directories, so that
+     * ownership and permissions are set once by the installer rather than by
+     * whichever request happens to arrive first. Emoncms also runs on hosts
+     * where that path does not exist and is not writable (shared hosting,
+     * containers), and creating a cache under a world writable temp directory
+     * would mean following whatever another local user had planted there.
+     * Where the directory is missing or read only the feature is simply off.
+     *
+     * @return bool
+     */
+    public function gravatar_enabled()
+    {
+        static $enabled = null;
+        if ($enabled === null) {
+            $enabled = is_dir(self::GRAVATAR_CACHE_DIR) && is_writable(self::GRAVATAR_CACHE_DIR);
+        }
+        return $enabled;
+    }
+
+    /**
+     * Server-side gravatar proxy: avatars are fetched and cached by the server
+     * so that the visitor's browser never connects to gravatar.com directly
+     * (gravatar.com would otherwise receive the visitor's IP and email hash on every page view)
+     *
+     * @param string $hash  md5 (32 hex chars) or sha256 (64 hex chars) gravatar email hash
+     * @param int    $size  image size in pixels
+     * @return array|false  array('content'=>bytes, 'mime'=>type) or false if unavailable
+     */
+    public function get_gravatar($hash, $size)
+    {
+        if (!$this->gravatar_enabled()) return false;
+        if (!is_string($hash) || !preg_match('/^([0-9a-f]{32}|[0-9a-f]{64})$/', $hash)) return false;
+        $size = (int) $size;
+        if ($size<1 || $size>512) $size = 52;
+
+        $cache_file = self::GRAVATAR_CACHE_DIR."/$hash-$size";
+        $cache_max_age = 7*24*3600;
+
+        $content = false;
+        if (is_file($cache_file) && (time()-filemtime($cache_file)) < $cache_max_age) {
+            $content = @file_get_contents($cache_file);
+        }
+        if ($content === false) {
+            $ch = curl_init("https://www.gravatar.com/avatar/$hash?s=$size&d=mp&r=g");
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_MAXREDIRS, 2);
+            $fetched = curl_exec($ch);
+            $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            // no curl_close(): deprecated since PHP 8.0 and the handle is freed
+            // when it goes out of scope. The deprecation notice it raises would be
+            // written into the response ahead of the image bytes, corrupting every
+            // cache miss on installs that have display_errors on.
+            unset($ch);
+            if ($fetched !== false && $http_code == 200 && strlen($fetched)) {
+                $content = $fetched;
+                // atomic write so concurrent requests never read a partial file
+                $tmp_file = $cache_file.".".getmypid().".tmp";
+                if (@file_put_contents($tmp_file, $content) !== false) @rename($tmp_file, $cache_file);
+            } else if (is_file($cache_file)) {
+                // gravatar.com unreachable: fall back to the stale cached copy
+                $content = @file_get_contents($cache_file);
+            }
+        }
+        if ($content === false) return false;
+
+        $mime = "image/png";
+        if (substr($content,0,3)=="\xFF\xD8\xFF") $mime = "image/jpeg";
+        else if (substr($content,0,6)=="GIF87a" || substr($content,0,6)=="GIF89a") $mime = "image/gif";
+        else if (substr($content,0,4)=="RIFF" && substr($content,8,4)=="WEBP") $mime = "image/webp";
+
+        return array('content'=>$content, 'mime'=>$mime);
+    }
+
+    public function update_last_active($userid) {
+        $userid = (int) $userid;
+        $lastactive = time();
+        $result = $this->mysqli->query("SHOW COLUMNS FROM users LIKE 'lastactive'");
+        if ($result->num_rows > 0) {
+            $this->mysqli->query("UPDATE users SET `lastactive` = '$lastactive' WHERE `id`= '$userid'");
+            return true;
+	}
+        return false;
+    }
+
+    /**
+     * Check rate limit for a given action and IP using Redis.
+     * Returns false if under the limit (allowed), true if over the limit (blocked).
+     *
+     * @param string $action  e.g. 'login', 'register', 'passwordreset'
+     * @param int    $limit   max attempts allowed within the window
+     * @param int    $window  time window in seconds
+     * @return bool
+     */
+    private function is_rate_limited($action, $limit, $window)
+    {
+        if ($this->disable_rate_limiting) return false;
+        if (!$this->redis) return false;
+
+        $ip = get_client_ip_env();
+        if (empty($ip)) {
+            // REMOTE_ADDR is missing or invalid (e.g. CLI, misconfigured proxy).
+            // Skip rate limiting rather than writing to a shared key-less bucket.
+            $this->log->warn("Rate limit skipped: empty IP for action:{$action}");
+            return false;
+        }
+
+        $key = "ratelimit:{$action}:" . $ip;
+        $attempts = $this->redis->incr($key);
+        if ($attempts === 1) {
+            $this->redis->expire($key, $window);
+        }
+        if ($attempts > $limit) {
+            $this->log->warn("Rate limit hit action:{$action} ip:{$ip}");
+            return true;
+        }
+        return false;
+    }
+
     /**
      * return true if input is not null
      *
@@ -1026,6 +1310,67 @@ class User
      */
     private function is_not_null ($var) {
         return !is_null($var);
+    }
+
+    // Consistent validation functions for email, username and password. 
+    // These are used in multiple places, centralise them here.
+    private function is_valid_email($email) {
+
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return array('success'=>false, 'message'=>tr("Email address format error"));
+        } else {
+            return array('success'=>true);
+        }
+    }
+
+    private function is_valid_username($username) {
+        if (!ctype_alnum($username)) {
+            return array('success'=>false, 'message'=>tr("Username must only contain a-z and 0-9 characters"));
+        } else if (strlen($username) < 3) {
+            return array('success'=>false, 'message'=>tr("Username must be at least 3 characters"));
+        } else if (strlen($username) > 30) {
+            return array('success'=>false, 'message'=>tr("Username must be less than 30 characters"));
+        } else {
+            return array('success'=>true);
+        }
+    }
+
+    private function is_valid_password($password) {
+        if (strlen($password) < 4) {
+            return array('success'=>false, 'message'=>tr("Password must be at least 4 characters"));
+        } else if (strlen($password) > 250) {
+            return array('success'=>false, 'message'=>tr("Password must be less than 250 characters"));
+        } else {
+            return array('success'=>true);
+        }
+    }
+
+    /**
+     * Validate a referrer string, returning it if it is a safe relative path,
+     * or an empty string if it contains a scheme or host (open-redirect prevention).
+     *
+     * @param  string $referrer  Raw referrer value (not yet URL-decoded)
+     * @return string            Safe relative path, or '' if invalid
+     */
+    public function validate_referrer($referrer)
+    {
+        if (empty($referrer)) return '';
+
+        // Prevent oversized payloads
+        if (strlen($referrer) > 2000) return '';
+
+        $decoded = urldecode($referrer);
+
+        // Reject backslashes: some browsers normalise \\ to / which can turn
+        // /\example.com into //example.com (a protocol-relative redirect)
+        if (strpos($decoded, '\\') !== false) return '';
+
+        // Only allow relative paths — no scheme (http://) and no host
+        $parsed = parse_url($decoded);
+        if (!isset($parsed['scheme']) && !isset($parsed['host']) && isset($parsed['path'])) {
+            return $decoded;
+        }
+        return '';
     }
 }
 

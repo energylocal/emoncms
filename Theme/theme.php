@@ -15,7 +15,7 @@ load_language_files("Theme/locale", "theme_messages");
 
 $q = ""; if (isset($_GET['q'])) $q = $_GET['q'];
 
-$v = 42;
+$v = 55;
 
 if (!in_array($settings["interface"]["themecolor"], ["blue","sun","yellow2","standard","copper","black","green"])) {
     $settings["interface"]["themecolor"] = "standard";
@@ -64,28 +64,61 @@ integrations: [],
     <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1">
     <title>Emoncms - <?php echo $route->controller.' '.$route->action.' '.$route->subaction; ?></title>
     <link rel="shortcut icon" href="<?php echo $path; ?>Theme/<?php echo $settings["interface"]["favicon"]; ?>" />
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <link rel="apple-touch-startup-image" href="<?php echo $path; ?>Theme/ios_load.png">
     <link rel="apple-touch-icon" href="<?php echo $path; ?>Theme/logo_normal.png">
 
-    <link href="<?php echo $path; ?>Lib/bootstrap/css/bootstrap.min.css" rel="stylesheet">
-    <link href="<?php echo $path; ?>Lib/bootstrap/css/bootstrap-responsive.min.css" rel="stylesheet">
-    <link href="<?php echo $path; ?>Theme/emoncms-base.css?v=<?php echo $v; ?>" rel="stylesheet">
-    <link href="<?php echo $path; ?>Lib/menu/menu.css?v=<?php echo $v; ?>" rel="stylesheet">
+    <!-- Open Graph meta tags for social media link preview -->
+    <meta property="og:title" content="Emoncms - open source energy visualisation">
+    <meta property="og:description" content="Emoncms is an open-source web application for processing, logging and visualising energy, temperature and other environmental data.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="<?php echo $_SERVER['REQUEST_SCHEME'] ?? 'http'; ?>://<?php echo $_SERVER['HTTP_HOST'] ?? $settings['domain']; ?><?php echo $_SERVER['REQUEST_URI'] ?? ''; ?>">
+    <meta property="og:image" content="<?php echo $path; ?>emoncms_graphic.png">
+    <meta property="og:site_name" content="Emoncms">
 
-    <?php include 'Lib/menu/menu_langjs.php' ?>
+    <!-- Twitter Card meta tags for social media link preview -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Emoncms - open source energy visualisation">
+    <meta name="twitter:description" content="Emoncms is an open-source web application for processing, logging and visualising energy, temperature and other environmental data.">
+    <meta name="twitter:image" content="<?php echo $path; ?>emoncms_graphic.png">
 
-    <script type="text/javascript" src="<?php echo $path; ?>Lib/jquery-3.6.0.min.js"></script>
-    <script type="text/javascript" src="<?php echo $path; ?>Lib/menu/menu.js?v=<?php echo $v; ?>"></script>
-    <script type="text/javascript" src="<?php echo $path; ?>Lib/misc/gettext.js?v=<?php echo $v; ?>"></script>
     
     <script>
     var current_themecolor = "<?php echo $settings["interface"]["themecolor"]; ?>";
     var current_themesidebar = "dark";
     </script>
-    <script src="<?php echo $path; ?>Lib/emoncms.js?v=<?php echo $v; ?>"></script>
-    <?php echo $svg_icons; // THEME ICONS ?>
+
+    <?php
+
+    // Consider replacing this with esbuild bundler (merge + minify) in the future
+
+    // Main theme CSS
+    load_css("Lib/bootstrap/css/bootstrap.min.css");
+    load_css("Lib/bootstrap/css/bootstrap-responsive.min.css");
+    load_css("Theme/css/emoncms-base.css");
+    load_css("Theme/css/menu.css");
+    load_css("Theme/css/card.css");
+    load_css("Theme/css/group-list.css");
+    load_css("Theme/css/autocomplete.css");
+    // Utility classes
+    load_css("Theme/css/bootstrap4-utils.css");
+    // Specific used icons
+    load_css("Theme/css/svg-icons.css");
+
+
+
+    // Menu Translations
+    include 'Theme/menu/menu_langjs.php';
+
+    // The main 3rd party JS libraries
+    load_js("Lib/js/jquery-3.6.0.min.js");
+
+    // Menu and translations
+    load_js("Theme/menu/menu.js");
+    load_js("Lib/js/gettext.js");
+    load_js("Theme/js/emoncms.js");
+    ?>
 	
 
     <!-- Global site tag (gtag.js) - Google Analytics -->
@@ -104,28 +137,34 @@ integrations: [],
         <div class="menu-top bg-menu-top">
             <div class="menu-l1"><ul></ul></div>
             <div class="menu-tr"><ul>
-            
             <?php if ($session["read"]) { ?>
-            <li class="<?php echo $session["gravatar"]?'':'no-'; ?>gravitar dropdown"><a id="user-dropdown" href="#" title="<?php echo $session["username"]." ".($session['admin']?'(Admin)':'')?>" class="grav-container img-circle d-flex dropdown-toggle" data-toggle="dropdown">
-            <?php if (!$session["gravatar"]) { ?>
-                <svg class="icon user" style="color:#fff"><use xlink:href="#icon-user"></use></svg>
-            <?php } else { ?>
-                <img src="https://www.gravatar.com/avatar/<?php echo md5($session["gravatar"]); ?>?s=52&d=mp&r=g" class="grav img-circle">
-            <?php } ?>
-            </a>
+
+            <?php $show_gravatar = $session["gravatar"] && gravatar_enabled(); ?>
+            <li class="<?php echo $show_gravatar ? '' : 'no-'; ?>gravatar dropdown">
+                <a id="user-dropdown" href="#" title="<?php echo $session["username"] . " " . ($session['admin'] ? '(Admin)' : ''); ?>" class="grav-container img-circle d-flex dropdown-toggle" data-toggle="dropdown">
+                    <?php if (!$show_gravatar) { ?>
+                        <span class="svg-icon-user" style="color:#fff"></span>
+                    <?php } else { ?>
+                        <img src="<?php echo $path; ?>user/gravatar?hash=<?php echo md5(strtolower(trim($session["gravatar"]))); ?>&amp;s=52" class="grav img-circle">
+                    <?php } ?>
+                </a>
 
                 <ul class="dropdown-menu pull-right" style="font-size:1rem">
                     <?php if ($session["write"]) { ?> 
-                    <li><a href="<?php echo $path; ?>user/view" title="<?php echo _("My Account"); ?>" style="line-height:30px"><svg class="icon"><use xlink:href="#icon-user"></use></svg> <?php echo _("My Account"); ?></a></li>
+                    <li><a href="<?php echo $path; ?>user/view" title="<?php echo ctx_tr("theme_messages","My Account"); ?>" style="line-height:30px"><span class="svg-icon-user"></span> <?php echo ctx_tr("theme_messages","My Account"); ?></a></li>
+                    <li class="divider"><a href="#"></a></li>  
+                    <?php if (isset($_SESSION['adminuser'])) { ?>
+                    <li><a href="<?php echo $path; ?>account/switch" title="<?php echo ctx_tr("theme_messages","Admin"); ?>" style="line-height:30px"><span class="svg-icon-logout"></span> <?php echo ctx_tr("theme_messages","Admin"); ?></a></li>
                     <li class="divider"><a href="#"></a></li>
                     <?php } ?>
-                    <li><a href="<?php echo $path; ?>user/logout" title="<?php echo _("Logout"); ?>" style="line-height:30px"><svg class="icon"><use xlink:href="#icon-logout"></use></svg> <?php echo _("Logout"); ?></a></li>
+                    <?php } ?>
+                    <li><a href="<?php echo $path; ?>user/logout" title="<?php echo ctx_tr("theme_messages","Logout"); ?>" style="line-height:30px"><span class="svg-icon-logout"></span> <?php echo ctx_tr("theme_messages","Logout"); ?></a></li>
                 </ul>
             </li>
             <?php } else { ?>
             <li>
-              <a href="<?php echo $path; ?>" title="<?php echo _("Login"); ?>">
-                <div class="tr-login"><svg class="icon enter"><use xlink:href="#icon-enter"></use></svg></div>
+              <a href="<?php echo $path; ?>" title="<?php echo ctx_tr("theme_messages","Login"); ?>">
+                <div class="tr-login"><span class="svg-icon-enter enter"></span></div>
               </a>
             </li>
             <?php } ?>
@@ -163,36 +202,21 @@ integrations: [],
             var q = "<?php echo preg_replace('/[^.\/_A-Za-z0-9-]/', '', $q); ?>"+location.search+location.hash;
             menu.init(<?php echo json_encode($menu); ?>,"<?php echo $session['public_username']; ?>");
             </script>
-            <?php echo $content; ?>
+            <?php
+            if (is_array($content) || is_object($content)) {
+                echo json_encode($content);
+            } else {
+                echo $content;
+            }
+            ?>
         </main>
     </div><!-- eof #wrap -->
     <div id="footer">
-        <?php echo dgettext('theme_messages','Powered by'); ?>&nbsp;<a href="http://openenergymonitor.org" target="_blank" rel="noopener">OpenEnergyMonitor.org</a>
+        <?php echo ctx_tr('theme_messages','Powered by'); ?>&nbsp;<a href="https://openenergymonitor.org" target="_blank" rel="noopener">OpenEnergyMonitor.org</a>
         <span> | <a href="https://github.com/emoncms/emoncms/releases" target="_blank" rel="noopener"><?php echo $emoncms_version; ?></a></span>
     </div>
 
-    <script type="text/javascript" src="<?php echo $path; ?>Lib/bootstrap/js/bootstrap.js?v=2"></script>
-
-<!-- ICONS --------------------------------------------- -->
-
-
-<?php
-    // MODULE ICONS
-    if(!empty($menu['includes']['icons'])) :
-?>
-<svg aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
-    <defs>
-        <?php
-        foreach($menu['includes']['icons'] as $icon):
-            echo $icon;
-        endforeach;
-        ?>
-    </defs>
-</svg>
-<?php
-    // end of module icons
-    endif;
-?>
+    <?php load_js("Lib/bootstrap/js/bootstrap.js"); ?>
 </body>
 </html>
 

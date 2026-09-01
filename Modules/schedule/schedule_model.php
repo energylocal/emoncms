@@ -49,9 +49,7 @@ class Schedule
         if (!$this->exist($id)) return array('success'=>false, 'message'=>'Schedule does not exist');
 
         $result = $this->mysqli->query("SELECT * FROM schedule WHERE id = '$id'");
-        $row = (array) $result->fetch_object();
-
-        return $row;
+        return (array) $result->fetch_object();
     }
 
     public function get_list($userid)
@@ -59,9 +57,11 @@ class Schedule
         $userid = (int) $userid;
         $schedules = array();
 
-        $result = $this->mysqli->query("SELECT `id`, `userid`, `name`, `expression`, `timezone`, `public`, CASE `userid` WHEN '$userid' THEN '1' ELSE '0' END AS `own` FROM schedule WHERE (userid = '$userid' OR public = '1')");
+        $result = $this->mysqli->query("SELECT `id`, `userid`, `name`, `expression`, `timezone` FROM schedule WHERE userid = '$userid'");
         while ($row = (array)$result->fetch_object())
         {
+            $row['id'] = (int) $row['id'];
+            $row['userid'] = (int) $row['userid'];
             $schedules[] = $row;
         }
         return $schedules;
@@ -90,8 +90,15 @@ class Schedule
     public function create($userid)
     {
         $userid = intval($userid);
-        $this->mysqli->query("INSERT INTO schedule (`userid`,`name`,`expression`,`timezone`, `public`) VALUES ('$userid','New Schedule','','".$this->timezone."',0)");
-        return $this->mysqli->insert_id;
+        $stmt = $this->mysqli->prepare("INSERT INTO schedule (`userid`,`name`,`expression`,`timezone`) VALUES (?,?,?,?)");
+        $name = 'New Schedule';
+        $expression = '';
+        $timezone = $this->timezone;
+        $stmt->bind_param("isss", $userid, $name, $expression, $timezone);
+        $stmt->execute();
+        $id = $this->mysqli->insert_id;
+        $stmt->close();
+        return $id;
     }
 
     public function delete($id)
@@ -117,15 +124,6 @@ class Schedule
             if (preg_replace('/[^\p{N}\p{L}_\s\-:]/u','',$fields->name)!=$fields->name) return array('success'=>false, 'message'=>'invalid characters in schedule name');
             $stmt = $this->mysqli->prepare("UPDATE schedule SET name = ? WHERE id = ?");
             $stmt->bind_param("si",$fields->name,$id);
-            if ($stmt->execute()) $success = true;
-            $stmt->close();
-        }
-        
-        if (isset($fields->public)) {
-            $public = (int) $fields->public;
-            if ($public>0) $public = 1;
-            $stmt = $this->mysqli->prepare("UPDATE schedule SET public = ? WHERE id = ?");
-            $stmt->bind_param("ii",$public,$id);
             if ($stmt->execute()) $success = true;
             $stmt->close();
         }
@@ -249,10 +247,10 @@ class Schedule
                             list($start, $end) = explode('-', $day, 2);
                             list($m, $d) = explode('/', $start, 2);
                             $start = clone $timeDay;
-                            $start->setDate($start->format('Y') , $m , $d); // set the wanted day and month for 00:00 of input year
+                            $start->setDate($start->format('Y'), $m, $d); // set the wanted day and month for 00:00 of input year
                             list($m, $d) = explode('/', $end, 2);
                             $end = clone $timeDay;
-                            $end->setDate($end->format('Y') , $m , $d);  // set the wanted day and month for 00:00 of input year
+                            $end->setDate($end->format('Y'), $m, $d);  // set the wanted day and month for 00:00 of input year
                             if ($debug) $debugval.=("  ---->" . $start->format('D Y-m-d H:i:s e') . " - " . $end->format('D Y-m-d H:i:s e') . " ? ". $timeDay->format('D Y-m-d H:i:s e'));
                             if ($timeDay >= $start && $timeDay <= $end) {
                                 $inrange_day = true;
@@ -260,7 +258,7 @@ class Schedule
                         } else {                            // Is just one day
                             list($m, $d) = explode('/', $day, 2);
                             $start = clone $timeDay;
-                            $start->setDate($start->format('Y') , $m , $d); // set the wanted day and month for 00:00 of input year
+                            $start->setDate($start->format('Y'), $m, $d); // set the wanted day and month for 00:00 of input year
                             if ($debug) $debugval.=("  ---->" . $start->format('D Y-m-d H:i:s e') . " ? ". $timeDay->format('D Y-m-d H:i:s e'));
                             if ($timeDay == $start) {
                                 $inrange_day = true;

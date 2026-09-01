@@ -3,7 +3,7 @@ global $session, $route;
 if ($session['admin'] || $route->controller=="feed") {
 
     $menu["setup"]["l2"]['feed'] = array(
-        "name"=>_("Feeds"),
+        "name"=>tr("Feeds"),
         "href"=>"feed/view", 
         "order"=>2, 
         "icon"=>"format_list_bulleted"

@@ -8,7 +8,7 @@
   */
 
   // no direct access
-  defined('EMONCMS_EXEC') or die(_('Restricted access'));
+  defined('EMONCMS_EXEC') or die(tr('Restricted access'));
 
   function vis_controller()
   {
@@ -22,7 +22,7 @@
     $feed = new Feed($mysqli,$redis, $settings['feed']);
 
     require "Modules/vis/multigraph_model.php";
-    $multigraph = new Multigraph($mysqli);
+    $multigraph = new Multigraph($mysqli, $feed);
 
     $visdir = "vis/visualisations/";
 
@@ -59,6 +59,7 @@
             {
                 $array = array();
                 $array['valid'] = true;
+                $array['message'] = '';
 
                 if (isset($vis['options']))
                 {
@@ -76,6 +77,8 @@
                                 $tagname = explode(":",$feedid);
                                 if (count($tagname)==2) {
                                     $feedid = $feed->exists_tag_name($session['userid'],$tagname[0],$tagname[1]);
+                                } else {
+                                    $feedid = false;
                                 }
                             } else {
                                 $feedid = (int) $feedid;
@@ -89,11 +92,15 @@
 
                                   if ($f['userid']!=$session['userid']) $array['valid'] = false;
                                   if ($f['public']) $array['valid'] = true;
+                                        $array['message'] = "authentication not valid";
+                                        $array['message'] = '';
                               } else {
                                   $array['valid'] = false;
+                                    $array['message'] = 'feed name not set';
                               }
                             } else {
                               $array['valid'] = false;
+                                $array['message'] = 'invalid feedid';
                             }
                         }
                         else if ($type==4) // Boolean
@@ -102,8 +109,10 @@
                             else if (get($key) || get($key) == "false" || get($key) == 0)
                                 $array[$key] = 0;
                             else $array[$key] = $default;
-                        else if ($type==5 && !is_null(get($key)))
-                            $array[$key] = preg_replace('/[^\p{L}_\p{N}\s£$€¥₽]/u','',get($key))?get($key):$default;
+                        elseif ($type==5 && !is_null(get($key))) {
+                            $sanitized = preg_replace('/[^\p{L}_\p{N}\s£$€¥₽]/u','',get($key));
+                            $array[$key] = ($sanitized !== '') ? $sanitized : $default;
+                        }
                         else if ($type==6)
                             $array[$key] = str_replace(',', '.', floatval((get($key)?get($key):$default)));
                         else if ($type==7)
@@ -114,15 +123,18 @@
                               $f = $multigraph->get($mid,$session['userid']);
                               $array[$key] = intval(($mid?$mid:$default));
                               if (!isset($f['feedlist'])) $array['valid'] = false;
+                                  $array['message'] = 'invalid feedlist';
                             } else {
                               $array['valid'] = false;
+                              $array['message'] = 'invalid multigraph id';
                             }
                         }
 
                         # we need to either urlescape the colour, or just scrub out invalid chars. I'm doing the second, since
                         # we can be fairly confident that colours are eiter a hex or a simple word (e.g. "blue" or such)
                         else if ($type==9 && !is_null(get($key))) // Color
-                            $array[$key] = preg_replace('/[^\dA-Za-z]/','',get($key))?get($key):$default;
+                            $sanitized = preg_replace('/[^\dA-Za-z#]/', '', get($key));
+                            $array[$key] = ($sanitized !== '') ? $sanitized : $default;
                     }
                 }
 
@@ -130,7 +142,7 @@
                 $array['write_apikey'] = $write_apikey;
 
                 if ($array['valid'] == false) {
-                    $result .= "<div style='position:absolute; top:0px; left:0px; width:100%; height:100%; display: table;'><div class='alert-error' style='text-align:center; display:table-cell; vertical-align:middle;'><h4>"._('Not configured')."<br>"._('or')."<br>"._('Authentication not valid')."</h4></div></div>";
+                    $result .= "<div style='position:absolute; top:0px; left:0px; width:100%; height:100%; display: table;'><div class='alert-error' style='text-align:center; display:table-cell; vertical-align:middle;'><h4>".$array['message']."</h4></div></div>";
                 } else {
                     $result .= view("Modules/".$visdir.$viskey.".php", $array);
                 }
@@ -147,7 +159,7 @@
     {
         if ($route->subaction == 'get') $result = $multigraph->get(get('id'),$session['userid']);
         else if ($route->subaction == 'getlist') $result = $multigraph->getlist($session['userid']);
-
+        } elseif ($route->subaction == 'getlist' && $session['read']) {
         else if ($session['write']) {
             if ($route->subaction == 'new') $result = $multigraph->create($session['userid']);
             else if ($route->subaction == 'delete') $result = $multigraph->delete(get('id'),$session['userid']);

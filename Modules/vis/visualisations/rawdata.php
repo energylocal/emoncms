@@ -13,7 +13,12 @@
 ?>
 
 <!--[if IE]><script language="javascript" type="text/javascript" src="<?php echo $path;?>Lib/flot/excanvas.min.js"></script><![endif]-->
-<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/jquery.flot.merged.js"></script>
+<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/jquery.flot.min.js"></script>
+<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/jquery.flot.selection.min.js"></script>
+<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/jquery.flot.touch.min.js"></script>
+<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/jquery.flot.time.min.js"></script>
+<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/date.format.min.js"></script>
+<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/jquery.flot.canvas.min.js"></script>
 <script language="javascript" type="text/javascript" src="<?php echo $path;?>Modules/feed/feed.js?v=<?php echo $vis_version; ?>"></script>
 <script language="javascript" type="text/javascript" src="<?php echo $path;?>Lib/vis.helper.js?v=<?php echo $vis_version; ?>"></script>
 
@@ -36,17 +41,20 @@
             <button class='btn graph-nav' id='right'>></button>
         </div>
 
+        <div class='btn-group'>
+            <button class='btn graph-exp' id='graph-fullscreen' type='button'><i class='icon-resize-full'></i></button>
+        </div>
     </div>
     <h3 style="position:absolute; top:0px; left:32px;"><span id="stats"></span></h3>
 </div>
 
 <div id="info" style="padding:20px; margin:25px; background-color:rgb(245,245,245); font-style:italic; display:none">
 
-    <p><b><?php echo _("Mean:") ?></b> <span id="stats-mean"></span></p>
-    <p><b><?php echo _("Min:") ?></b> <span id="stats-min"></span></p>
-    <p><b><?php echo _("Max:") ?></b> <span id="stats-max"></span></p>
-    <p><b><?php echo _("Standard deviation:") ?></b> <span id="stats-stdev"></span></p>
-    <p><b><?php echo _("Datapoints in view:") ?></b> <span id="stats-npoints"></span></p>
+    <p><b><?php echo tr("Mean:") ?></b> <span id="stats-mean"></span></p>
+    <p><b><?php echo tr("Min:") ?></b> <span id="stats-min"></span></p>
+    <p><b><?php echo tr("Max:") ?></b> <span id="stats-max"></span></p>
+    <p><b><?php echo tr("Standard deviation:") ?></b> <span id="stats-stdev"></span></p>
+    <p><b><?php echo tr("Datapoints in view:") ?></b> <span id="stats-npoints"></span></p>
 
 </div>
 
@@ -55,6 +63,7 @@
 var feedid = <?php echo $feedid; ?>;
 var feedname = "<?php echo $feedidname; ?>";
 var apikey = "<?php echo $apikey; ?>";
+feed.apikey = apikey;
 var embed = <?php echo $embed; ?>;
 var valid = "<?php echo $valid; ?>";
 var previousPoint = false;
@@ -65,7 +74,8 @@ var plotColour = urlParams.colour;
 var backgroundColour = urlParams.colourbg;
 if (backgroundColour==undefined || backgroundColour=='') backgroundColour = "ffffff";
 $("body").css("background-color","#"+backgroundColour);
-
+document.body.style.setProperty("--bg-vis-graph-color", "#"+backgroundColour);
+  
 var units = urlParams.units;
     if (units==undefined || units=='') units = "";
 var dp = urlParams.dp;
@@ -112,7 +122,7 @@ var data = [];
 $(function() {
 
     if (embed==false) {
-        $("#vis-title").html("<h2><?php echo _("Raw:") ?> "+feedname+"<h2>");
+        $("#vis-title").html("<h2><?php echo tr("Raw:") ?> "+feedname+"<h2>");
         $("#info").show();
     }
     draw();
@@ -121,6 +131,7 @@ $(function() {
     $("#zoomin").click(function () {view.zoomin(); draw();});
     $('#right').click(function () {view.panright(); draw();});
     $('#left').click(function () {view.panleft(); draw();});
+    $("#graph-fullscreen").click(function () {view.fullscreen();});
     $('.graph-time').click(function () {view.timewindow($(this).attr("time")); draw();});
     
     placeholder.bind("plotselected", function (event, ranges)
@@ -157,7 +168,7 @@ $(function() {
 
     function draw()
     {   
-        view.calc_interval(800);
+        view.calc_interval(2400);
         data = feed.getdata(feedid,view.start,view.end,view.interval,average,delta,skipmissing,1);
         
         var out = [];

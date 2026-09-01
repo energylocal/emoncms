@@ -8,6 +8,7 @@
     
     EXAMPLES:
     
+    // Existing examples:
     create an input from emonTx node called power with value 10:
         [basetopic]/emontx/power 10
     
@@ -22,6 +23,21 @@
 
     * [basetopic] and user ID of target Emoncms account can be set in settings.php
     
+    // Additional supported formats:
+
+    // 1. JSON object with key-value pairs:
+        [basetopic]/emontx {"power":10,"vrms":230.1}
+
+    // 2. JSON object with time (as number or string):
+        [basetopic]/emontx {"power":10,"vrms":230.1,"time":1720080000}
+        [basetopic]/emontx {"power":10,"time":"2025-07-04T12:00:00Z"}
+
+    // 3. JSON object with nested {name, value} objects:
+        [basetopic]/emontx {"power":{"name":"ct1","value":10},"vrms":{"value":230.1}}
+
+    // 4. Device auto-configuration (if 'describe' key is present):
+        [basetopic]/emontx {"describe":"..."}
+
     Emoncms then processes these inputs in the same way as they would be
     if sent to the HTTP Api.
     
@@ -38,6 +54,7 @@
     
     chdir(dirname(__FILE__)."/../../../");
     require "Lib/EmonLogger.php";
+    require "core.php";
     require "process_settings.php";
     
     set_error_handler('exceptions_error_handler');
@@ -51,33 +68,25 @@
         die;
     }
     
-    $retry = 0;
-    $mysqli_connected = false;
-    while(!$mysqli_connected) {
-        // Try to connect to mysql
-        $mysqli = @new mysqli(
-            $settings["sql"]["server"],
-            $settings["sql"]["username"],
-            $settings["sql"]["password"],
-            $settings["sql"]["database"],
-            $settings["sql"]["port"]
-        );
+    require("Modules/user/user_model.php");
+    require_once "Modules/feed/feed_model.php";
+    require_once "Modules/input/input_model.php";
+    require_once "Modules/process/process_model.php";
         
-        if ($mysqli->connect_error) { 
-            $log->error("Cannot connect to MYSQL database:". $mysqli->connect_error);  
-            $retry ++;
-            if ($retry>3) die;
-            sleep(5.0);
-        } else {
-            $mysqli_connected = true;
-            break;
-        }
+    $device_module_exists = false;
+    if (file_exists("Modules/device/device_model.php")) {
+        require_once "Modules/device/device_model.php";
+        $device_module_exists = true;
     }
     
-    // Enable for testing
-    // $mysqli->query("SET interactive_timeout=60;");
-    // $mysqli->query("SET wait_timeout=60;");
+    $connected = false;
+    $subscribed = 0;
+    $last_retry = 0;
+    $last_heartbeat = time();
+    $count = 0;
+    $pub_count = 0; // used to reduce load relating to checking for messages to be published
 
+    // Connect to redis if enabled
     if ($settings['redis']['enabled']) {
         $redis = new Redis();
         if (!$redis->connect($settings['redis']['host'], $settings['redis']['port'])) {
@@ -93,49 +102,57 @@
         $redis = false;
     }
     
-    require("Modules/user/user_model.php");
-    $user = new User($mysqli,$redis,null);
-    
-    require_once "Modules/feed/feed_model.php";
-    $feed = new Feed($mysqli,$redis,$settings['feed']);
-
-    require_once "Modules/input/input_model.php";
-    $input = new Input($mysqli,$redis,$feed);
-    
-    $timezone = 'UTC';
-    if (!$settings["mqtt"]["multiuser"]) {
-        $timezone = $user->get_timezone($settings["mqtt"]["userid"]);
-    }
-
-    require_once "Modules/process/process_model.php";
-    $process = new Process($mysqli,$input,$feed,$timezone);
-
-    $device = false;
-    if (file_exists("Modules/device/device_model.php")) {
-        require_once "Modules/device/device_model.php";
-        $device = new Device($mysqli,$redis);
-    }
     /*
         new Mosquitto\Client($id,$cleanSession)
         $id (string) – The client ID. If omitted or null, one will be generated at random.
         $cleanSession (boolean) – Set to true to instruct the broker to clean all messages and subscriptions on disconnect. Must be true if the $id parameter is null.
     */
     $mqtt_client = new Mosquitto\Client($settings['mqtt']['client_id'],true);
-    
-    $connected = false;
-    $subscribed = 0;
-    $last_retry = 0;
-    $last_heartbeat = time();
-    $count = 0;
-    $pub_count = 0; // used to reduce load relating to checking for messages to be published
-    
     $mqtt_client->onConnect('connect');
     $mqtt_client->onDisconnect('disconnect');
     $mqtt_client->onSubscribe('subscribe');
     $mqtt_client->onMessage('message');
 
+    $mysqli_connected = false;
+
     // Option 1: extend on this:
-    while(true){
+    while(true) {
+        // Ensure we are connected to mysql
+        if ($mysqli_connected === false) {
+            // Try to connect to mysql
+            $mysqli = @new mysqli(
+                $settings["sql"]["server"],
+                $settings["sql"]["username"],
+                $settings["sql"]["password"],
+                $settings["sql"]["database"],
+                $settings["sql"]["port"]
+            );
+
+            if ($mysqli->connect_error) {
+                $log->error("Cannot connect to MYSQL database:". $mysqli->connect_error);
+                sleep(5.0);
+                continue;
+            } else {
+                $mysqli_connected = true;
+            }
+
+            // Recreate all model objects with new mysqli connection
+            $user = new User($mysqli, $redis, null);
+            $feed = new Feed($mysqli, $redis, $settings['feed']);
+            $input = new Input($mysqli, $redis, $feed);
+
+            $timezone = 'UTC';
+            if (!$settings["mqtt"]["multiuser"]) {
+                $timezone = $user->get_timezone($settings["mqtt"]["userid"]);
+            }
+
+            $process = new Process($mysqli, $input, $feed, $timezone);
+            if ($device_module_exists !== false) {
+                $device = new Device($mysqli, $redis);
+            }
+            $log->info("Successfully reconnected to MySQL and reloaded all objects");
+        }
+        
         try {
             $mqtt_client->loop();
         } catch (Exception $e) {
@@ -197,15 +214,26 @@
         }
         $pub_count++;
 
-        if ((time()-$last_heartbeat)>300) {
+        if ((time() - $last_heartbeat) > 300) {
             $last_heartbeat = time();
             $log->info("$count Messages processed in last 5 minutes");
+            if (isset($settings['mqtt']['pub_count']) && $settings['mqtt']['pub_count']) {
+                $topic = $settings['mqtt']['basetopic'] . "/emoncms/mqtt_msg_count_5min";
+                $mqtt_client->publish($topic, $count);
+            }
             $count = 0;
-
-            // Keep mysql connection open with periodic ping
-            if (!$mysqli->ping()) {
-                $log->warn("mysql ping false");
-                die;
+            
+            // Check mysql connection and recreate objects if needed
+            try {
+                $result = $mysqli->query("SELECT 1");
+                if (!$result) {
+                    throw new Exception("Connection lost");
+                }
+                $result->close();
+            } catch (Exception $e) {
+                $log->warn("MySQL connection lost, attempting to reconnect and reload objects");
+                $mysqli->close();
+                $mysqli_connected = false;
             }
         }
 
@@ -265,7 +293,7 @@
             $topic = str_replace(":","",$topic);
 
             //Check and see if the input is a valid JSON and when decoded is an array. A single number is valid JSON.
-            $jsondata = json_decode($value,true,2);
+            $jsondata = json_decode($value,true,3);
             if ((json_last_error() === JSON_ERROR_NONE) && is_array($jsondata)) {
                 // JSON is valid - is it an array
                 $jsoninput = true;
@@ -290,10 +318,12 @@
                         } else {
                             $log->info("Valid time string used ".$inputtime);
                             $time = $timestamp;
+                            unset($jsondata["time"]);
                         }
                     } else {
-                        $log->warn("Time value not valid ".$inputtime);
+                        $log->warn("Time value not valid ".json_encode($inputtime));
                         $time = time();
+                        unset($jsondata["time"]);
                     }
                 } else {
                     $log->info("No time element found in JSON - System time used");
@@ -304,7 +334,7 @@
                 $time = time();
             }
 
-            $log->info($topic." ".$value);
+            $log->info($topic." ".($jsoninput ? json_encode($jsondata) : $value));
             $count ++;
             
             $inputs = array();
@@ -347,7 +377,19 @@
                         $input_name = implode("_",$input_name_parts)."_";
                     }
                     foreach ($jsondata as $key=>$value) {
-                        $inputs[] = array("userid"=>$userid, "time"=>$time, "nodeid"=>$nodeid, "name"=>$input_name.$key, "value"=>$value);
+                        // Unbox { name: xxx, value: xxx }
+                        if (is_array($value) && array_key_exists("value", $value)) {
+                            if (array_key_exists("name", $value) && $value["name"])
+                                $key .= '_'.$value["name"];
+                            $value = $value["value"];
+                        }
+
+                        if (is_scalar($value)) {
+                            $inputs[] = array("userid"=>$userid, "time"=>$time, "nodeid"=>$nodeid, "name"=>$input_name.$key, "value"=>$value);
+                        } else {
+                            $log->warn("Unable to unpack JSON, not recording ".$key." : ".json_encode($value));
+                            continue;
+                        }
                     }
                 } else if ($route_len>=$min_route_len) {
                     // Input name is all the remaining parts connected together
@@ -372,11 +414,14 @@
             if (!isset($dbinputs[$nodeid])) {
                 $log->info("Creating new device for $nodeid");
                 $dbinputs[$nodeid] = array();
-                $type = null;
-                if (startsWith($nodeid, "tasmota_")) {
-                  $type = "tasmota";
+                if ($device && method_exists($device,"create")) {
+                    if ($input->is_creation_disabled($userid)) {
+                        $log->warn("Input creation is disabled, cannot create device for nodeid: ".$nodeid);
+                    } else {
+                        $log->info("Creating device for nodeid: ".$nodeid);
+                        $device->create($userid,$nodeid,null,null,null);
+                    }
                 }
-                if ($device && method_exists($device,"create")) $device->create($userid,$nodeid,null,null,$type);
             }
 
             $tmp = array();
@@ -406,23 +451,39 @@
                 else 
                 {
                     if (!isset($dbinputs[$nodeid][$name])) {
-                        $inputid = $input->create_input($userid, $nodeid, $name);
-                        if (!$inputid) {
-                            $log->warn("error creating input"); die;
-                        }
+                        if ($input->is_creation_disabled($userid)) {
+                            $log->warn("Input creation is disabled, cannot create input: ".$name." for nodeid: ".$nodeid);
+                            continue;
+                        } else {
+                            $log->info("Creating input: ".$name." for nodeid: ".$nodeid);
+                            $inputid = $input->create_input($userid, $nodeid, $name);
+                            if (!$inputid) {
+                                $log->warn("error creating input");
+                                continue;
+                            }
                         $dbinputs[$nodeid][$name] = true;
-                        $dbinputs[$nodeid][$name] = array('id'=>$inputid);
-                        $input->set_timevalue($dbinputs[$nodeid][$name]['id'],$time,$value);
+                            $dbinputs[$nodeid][$name] = array('id'=>$inputid);
+                            $input->set_timevalue($dbinputs[$nodeid][$name]['id'],$time,$value);
+                        }
                     } else {
                         $inputid = $dbinputs[$nodeid][$name]['id'];
                         $input->set_timevalue($dbinputs[$nodeid][$name]['id'],$time,$value);
                         
-                        if ($dbinputs[$nodeid][$name]['processList']) $tmp[] = array('value'=>$value,'processList'=>$dbinputs[$nodeid][$name]['processList']);
+                        if ($dbinputs[$nodeid][$name]['processList']) {
+                            $tmp[] = array(
+                                'value'=>$value,
+                                'processList'=>$dbinputs[$nodeid][$name]['processList'],
+                                'opt'=>array(
+                                    'sourcetype' => ProcessOriginType::INPUT,
+                                    'sourceid'=>$inputid
+                                )
+                            );
+                        }
                     }
                 }
             }
             
-            foreach ($tmp as $i) $process->input($time,$i['value'],$i['processList']);
+            foreach ($tmp as $i) $process->input($time,$i['value'],$i['processList'],$i['opt']);
             
         } catch (Exception $e) {
             $log->error($e);

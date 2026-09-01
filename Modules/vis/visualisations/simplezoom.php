@@ -12,12 +12,17 @@ global $path, $embed, $vis_version;
 ?>
 
 <!--[if IE]><script language="javascript" type="text/javascript" src="<?php echo $path;?>Lib/flot/excanvas.min.js"></script><![endif]-->
-<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/jquery.flot.merged.js"></script>
+<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/jquery.flot.min.js"></script>
+<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/jquery.flot.selection.min.js"></script>
+<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/jquery.flot.touch.min.js"></script>
+<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/jquery.flot.time.min.js"></script>
+<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/date.format.min.js"></script>
+<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/jquery.flot.canvas.min.js"></script>
 <script language="javascript" type="text/javascript" src="<?php echo $path;?>Lib/vis.helper.js?v=<?php echo $vis_version; ?>"></script>
 <script language="javascript" type="text/javascript" src="<?php echo $path;?>Modules/feed/feed.js?v=<?php echo $vis_version; ?>"></script>
 
 <?php if (!$embed) { ?>
-<h2><?php echo _("Simpler kWh/d zoomer"); ?></h2>
+<h2><?php echo tr("Simpler kWh/d zoomer"); ?></h2>
 <?php } ?>
 
 <div id="graph_bound" style="height:400px; width:100%; position:relative; ">
@@ -40,6 +45,9 @@ global $path, $embed, $vis_version;
             <button class='btn graph-nav' id='right'>></button>
         </div>
 
+        <div class='btn-group'>
+            <button class='btn graph-exp' id='graph-fullscreen' type='button'><i class='icon-resize-full'></i></button>
+        </div>
     </div>
     <h3 style="position:absolute; top:0px; left:32px;"><span id="stats"></span></h3>
 </div>
@@ -47,6 +55,11 @@ global $path, $embed, $vis_version;
 <script id="source" language="javascript" type="text/javascript">
 
 var embed = <?php echo $embed; ?>;
+
+var backgroundColour; //= urlParams.colourbg;
+if (backgroundColour==undefined || backgroundColour=='') backgroundColour = "ffffff";
+$("body").css("background-color","#"+backgroundColour);
+document.body.style.setProperty("--bg-vis-graph-color", "#"+backgroundColour);
 
 $('#graph').width($('#graph_bound').width());
 $('#graph').height($('#graph_bound').height());
@@ -109,7 +122,7 @@ function vis_feed_data() {
                 dataend = Math.ceil(view.end / intervalms) * intervalms;
                 skipmissing = 0
             } else {
-                view.calc_interval(1200);
+                view.calc_interval(2400);
                 interval = view.interval;
                 skipmissing = 1
             }
@@ -175,6 +188,7 @@ $("#zoomout").click(function () {view.zoomout(); vis_feed_data();});
 $("#zoomin").click(function () {view.zoomin(); vis_feed_data();});
 $('#right').click(function () {view.panright(); vis_feed_data();});
 $('#left').click(function () {view.panleft(); vis_feed_data();});
+$("#graph-fullscreen").click(function () {view.fullscreen();});
 $('.graph-time').click(function () {view.timewindow($(this).attr("time")); vis_feed_data();});
 
 $('#mode').click(function () {

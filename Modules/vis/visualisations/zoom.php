@@ -11,14 +11,19 @@
 ?>
 
 <!--[if IE]><script language="javascript" type="text/javascript" src="<?php echo $path;?>Lib/flot/excanvas.min.js"></script><![endif]-->
-<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/jquery.flot.merged.js"></script>
+<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/jquery.flot.min.js"></script>
+<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/jquery.flot.selection.min.js"></script>
+<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/jquery.flot.touch.min.js"></script>
+<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/jquery.flot.time.min.js"></script>
+<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/date.format.min.js"></script>
+<script language="javascript" type="text/javascript" src="<?php echo $path; ?>Lib/flot/jquery.flot.canvas.min.js"></script>
 
 <script language="javascript" type="text/javascript" src="<?php echo $path;?>Modules/vis/visualisations/common/daysmonthsyears.js?v=3"></script>
 <script language="javascript" type="text/javascript" src="<?php echo $path;?>Modules/feed/feed.js?v=<?php echo $vis_version; ?>"></script>
 <script language="javascript" type="text/javascript" src="<?php echo $path;?>Lib/vis.helper.js?v=<?php echo $vis_version; ?>"></script>
 
 <?php if (!$embed) { ?>
-<h2><?php echo _("kWh/d Zoomer"); ?></h2>
+<h2><?php echo tr("kWh/d Zoomer"); ?></h2>
 <?php } ?>
 
 <div id="placeholder_bound" style="width:100%; height:400px; position:relative; ">
@@ -50,6 +55,10 @@
             <button class='btn graph-nav' id='left'><</button>
             <button class='btn graph-nav' id='right'>></button>
         </div>
+
+        <div class='btn-group'>
+            <button class='btn graph-exp' id='graph-fullscreen' type='button'><i class='icon-resize-full'></i></button>
+        </div>
     </div>
 
 </div>
@@ -64,7 +73,12 @@ var delta = <?php echo $delta; ?>;
 
 var timeWindow = (3600000*24.0*365*10);   //Initial time window 10 years
 view.start = +new Date - timeWindow;  //Get start time
-view.end = +new Date; 
+view.end = +new Date;
+
+var backgroundColour; //= urlParams.colourbg;
+if (backgroundColour==undefined || backgroundColour=='') backgroundColour = "ffffff";
+$("body").css("background-color","#"+backgroundColour);
+document.body.style.setProperty("--bg-vis-graph-color", "#"+backgroundColour);
 
 $('#placeholder').width($('#placeholder_bound').width());
 $('#placeholder').height($('#placeholder_bound').height()-80);
@@ -102,7 +116,7 @@ function vis_feed_kwh_data_callback(data) {
         ndays++;
     }
 
-    bot_kwhd_text = "<?php echo _("Total:"); ?> "+(total).toFixed(0)+" <?php echo _("kWh"); ?> : "+add_currency((total*price), 0)+" | <?php echo _("Average:"); ?> "+(total/ndays).toFixed(1)+" <?php echo _("kWh"); ?> : "+add_currency((total/ndays)*price, 2)+" | "+add_currency((total/ndays)*price*7, 0)+" <?php echo _("a week"); ?>, "+add_currency((total/ndays)*price*365, 0)+" <?php echo _("a year"); ?> | <?php echo _("Unit price:"); ?> "+add_currency(price, 2);
+    bot_kwhd_text = "<?php echo tr("Total:"); ?> "+(total).toFixed(0)+" <?php echo tr("kWh"); ?> : "+add_currency((total*price), 0)+" | <?php echo tr("Average:"); ?> "+(total/ndays).toFixed(1)+" <?php echo tr("kWh"); ?> : "+add_currency((total/ndays)*price, 2)+" | "+add_currency((total/ndays)*price*7, 0)+" <?php echo tr("a week"); ?>, "+add_currency((total/ndays)*price*365, 0)+" <?php echo tr("a year"); ?> | <?php echo tr("Unit price:"); ?> "+add_currency(price, 2);
 
     years = get_years(kwh_data);
     //set_annual_view();
@@ -136,7 +150,7 @@ function vis_feed_data() {
 }
 
 function vis_feed_data_delayed() {
-    view.calc_interval(800);
+    view.calc_interval(2400);
     if (typeof ajaxAsyncXdr !== 'undefined') {
         ajaxAsyncXdr.abort(); // abort pending requests
         ajaxAsyncXdr = undefined;
@@ -152,7 +166,7 @@ function vis_feed_data_callback(data){
 
     var datetext = "";
     if ((view.end-view.start)<3600000*25) { var mdate = new Date(view.start); datetext = mdate.format("dd mmm yyyy") + ": "; }
-    $("#bot_out").html(datetext+"<?php echo _("Average:"); ?> "+st['mean'].toFixed(0)+"W | "+st['kwh'].toFixed(2)+" <?php echo _("kWh"); ?> | "+add_currency(st['kwh']*price, 2));
+    $("#bot_out").html(datetext+"<?php echo tr("Average:"); ?> "+st['mean'].toFixed(0)+"W | "+st['kwh'].toFixed(2)+" <?php echo tr("kWh"); ?> | "+add_currency(st['kwh']*price, 2));
 }
 
 // Zoom in on bar click
@@ -219,6 +233,7 @@ $('#left').click(function() {
     view.panleft();
     vis_feed_data();
 });
+$("#graph-fullscreen").click(function () {view.fullscreen();});
 $('.graph-time').click(function() {
     view.timewindow($(this).attr("time"));
     vis_feed_data();
@@ -289,6 +304,7 @@ function bargraph(data, barwidth, mode) {
         touch: {
             pan: "",
             scale: "",
+            simulClick: false,
             callback: function() {}
         }
     });

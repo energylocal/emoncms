@@ -41,7 +41,7 @@ class Route
      * @var string
      */
     public $query = '';
-    
+
     /**
      * @var string
      */
@@ -86,10 +86,10 @@ class Route
      */
     public function decode($q, $documentRoot, $requestMethod)
     {
-        if(is_null($q)){
-			$q="";
-		}
-		// filter out the applications relative root
+        if (is_null($q)) {
+            $q="";
+        }
+        // filter out the applications relative root
 
         // If we're running in a subdirectory "emoncms", $q would look like '/emoncms/user/view' instead or just 'user/view'
         // for the example of viewing a users profile. We need to remove the first directory to get the "clean" routing path
@@ -103,9 +103,9 @@ class Route
         // for example this will perform the following:
         // Running at root: str_replace('/var/www', '', '/var/www') => ''
         // Running at subdirectory: str_replace('/var/www', '', '/var/www/emoncms') => '/emoncms'
-		if (!is_null($documentRoot)) {
-        $relativeApplicationPath = str_replace($documentRoot, '', $absolutePath);
-		}
+        if (!is_null($documentRoot)) {
+            $relativeApplicationPath = str_replace($documentRoot, '', $absolutePath);
+        }
 
         // Next up we will need to remove the '/emoncms' from the route path '/emoncms/user/view'
         // str_replace('/emoncms', '', '/emoncms/user/view') => '/user/view'
@@ -145,15 +145,17 @@ class Route
         }
         $this->query = parse_url($_SERVER['REQUEST_URI'], PHP_URL_QUERY);
         
-        // allow for method to be added as post variable
-        if (post('_method')=='DELETE') {
-            $this->method = 'DELETE';
-        } elseif (post('_method')=='PUT') {
-            $this->method = 'PUT';
-        } elseif (in_array($requestMethod, array('POST', 'DELETE', 'PUT'))) {
+        // whitelist HTTP methods, default to GET
+        if (in_array($requestMethod, array('POST', 'DELETE', 'PUT'))) {
             $this->method = $requestMethod;
+
         } elseif ($requestMethod === 'OPTIONS') {
             // "CORS PREFLIGHT REQUESTS" EXPECT THESE HEADERS. no content required
+            // Note: Allow-Methods is currently GET-only, but authenticated write calls via
+            // apikey in the URL (/input/post?apikey=xxx) are "simple" POST requests that
+            // bypass CORS preflight entirely, so this restriction is not a full control.
+            // Consider adding POST here to make the policy consistent with actual capability:
+            //   header('Access-Control-Allow-Methods: GET, POST');
             header('Access-Control-Allow-Origin: *');
             header('Access-Control-Allow-Headers: Authorization');
             header('Access-Control-Allow-Methods: GET');

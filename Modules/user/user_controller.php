@@ -47,9 +47,9 @@ function user_controller()
             }
             
             if(!is_null($ref)){
-                $referrer = htmlentities(filter_var(urldecode(base64_decode($ref)), FILTER_SANITIZE_URL));
+                $referrer = htmlspecialchars($user->validate_referrer(urldecode(base64_decode($ref))), ENT_QUOTES, 'UTF-8');
             } else {
-                $referrer="";
+                $referrer = '';
             }
             // load login template with the above parameters
             return view("Modules/user/login_block.php", array(
@@ -60,8 +60,11 @@ function user_controller()
                 'v' => 3
             ));
         }
-        if ($route->action == 'view' && $session['write']) return view("Modules/user/profile/profile.php", array());
-          
+        if ($route->action == 'view' && $session['write']) {
+            return view("Modules/user/profile/profile.php", array(
+            ));
+        }
+        
         if ($route->action == 'logout') {
             // decode url parameters
             $next = $path;
@@ -69,7 +72,13 @@ function user_controller()
             $msg = get('msg');
             $message = isset($msg) ? htmlspecialchars(urldecode($msg)) : '';
             $ref = get('ref');
-            $referrer = isset($ref) ? htmlspecialchars(urldecode(base64_decode(get('ref')))) : '';
+            
+            // Validate referrer to prevent open redirect (scheme/host not allowed)
+            if(!is_null($ref)){
+                $referrer = $user->validate_referrer(urldecode(base64_decode($ref)));
+            } else {
+                $referrer = '';
+            }
             
             // encode url parameters to pass through to login page
             $msg = urlencode($message);
@@ -83,10 +92,42 @@ function user_controller()
             header('Location: '.$next);
             exit();
         }
-        
-        if ($route->action == 'verify' && $settings["interface"]["email_verification"] && !$session['read'] && isset($_GET['key'])) { 
-            $verify = $user->verify_email($_GET['email'], $_GET['key']);
-            return view("Modules/user/login_block.php", array('allowusersregister'=>$allowusersregister,'verify'=>$verify));
+
+        // Server-side gravatar proxy, see User::get_gravatar
+        if ($route->action == 'gravatar' && $session['read']) {
+            $avatar = $user->get_gravatar(get('hash'), (int) get('s'));
+            if ($avatar === false) {
+                header($_SERVER["SERVER_PROTOCOL"]." 404 Not Found");
+                exit();
+            }
+            header("Content-Type: ".$avatar['mime']);
+            header("Content-Length: ".strlen($avatar['content']));
+            header("Cache-Control: private, max-age=86400");
+            echo $avatar['content'];
+            exit();
+        }
+
+        if ($route->action == 'verify' && $settings['interface']['email_verification'] && isset($_GET['key'])) {
+            // On first registration the user will not be logged in
+            // a message is returned on the login page with the result of the verification process
+            if (!$session['read']) {
+                $verify = $user->verify_email(get('key', true));
+                return view("Modules/user/login_block.php", array('allowusersregister'=>$allowusersregister, 'verify'=>$verify, 'message'=>'', 'referrer'=>''));
+
+            // If the user is logged in already it means they changed their email and are verifying the new email address
+            // in this case we show the profile page with a message about the result of the verification process
+            } else if ($session['write']) {
+                $verify = $user->verify_email(get('key', true));
+                
+                if ($verify['success']) {
+                    if (isset($verify['userid']) && $verify['userid'] == $session['userid']) {
+                        $session['emailverified'] = 1;
+                        $_SESSION['emailverified'] = 1;
+                    }
+                }
+                
+                return view("Modules/user/profile/profile.php",array());
+            }
         }
     }
 
@@ -97,22 +138,52 @@ function user_controller()
         if ($route->action == 'login' && !$session['read']) return $user->login(post('username'),post('password'),post('rememberme'),post('referrer'));
         if ($route->action == 'register' && $allowusersregister) return $user->register(post('username'),post('password'),post('email'),post('timezone'));
         if ($route->action == 'logout' && $session['read']) {$user->logout();call_hook('on_logout',[]);}
+
         
         if ($route->action == 'resend-verify' && $settings["interface"]["email_verification"]) {
             if (isset($_GET['username'])) $username = $_GET['username']; else $username = $session["username"];
             return  $user->send_verification_email($username);
         }
 
+        // Trigger password reset from username and email (non authenticated)
+        if ($route->action == 'passwordreset') return  $user->passwordreset(get('username'),get('email'));
+
+        // Returns apikey's from login credentials, required username and password.
+        if ($route->action == 'auth' && !$session['read']) return  $user->get_apikeys_from_login(post('username'),post('password'));
+
+        // The end points are safe to use with apikeys
+
+        // Describes the current session so that a client holding an apikey can discover which
+        // account the key belongs to and whether it grants write access, without exposing the
+        // username, email address or the keys themselves. Used by the sync module to validate a
+        // remote apikey, in place of user/get which is restricted to interactive logins below.
+        if ($route->action == 'session' && $session['read']) return array(
+            'userid' => (int) $session['userid'],
+            'type' => $session['write'] ? 'write' : 'read'
+        );
+
+        if ($route->action == 'getuuid' && $session['read']) return $user->get_uuid($session['userid']);
+        if ($route->action == 'timezone' && $session['read']) return $user->get_timezone_offset($session['userid']); // to maintain compatibility but in seconds
+        if ($route->action == 'gettimezone' && $session['read']) return $user->get_timezone($session['userid']);
+        if ($route->action == 'gettimezones') return $user->get_timezones();
+
+        // ---------------------------------------------------------------------------------------------------------
+        // All actions beyond this point require the user to be logged in with a username and password not an apikey
+        // ---------------------------------------------------------------------------------------------------------
+        $is_apikey_session = !empty($session['apikey']);
+
+        if ($session['read'] && $is_apikey_session) {
+            return array('success'=>false, 'message'=>tr("This action requires an interactive login and cannot be performed with an API key"));
+        }
+        
+        // Change username, email, password
         if ($route->action == 'changeusername' && $session['write']) return  $user->change_username($session['userid'],get('username'));
         if ($route->action == 'changeemail' && $session['write']) return  $user->change_email($session['userid'],get('email'));
         if ($route->action == 'changepassword' && $session['write']) return  $user->change_password($session['userid'],post('old'),post('new'));
         
-        if ($route->action == 'passwordreset') return  $user->passwordreset(get('username'),get('email'));
         // Apikey
         if ($route->action == 'newapikeyread' && $session['write']) return  $user->new_apikey_read($session['userid']);
         if ($route->action == 'newapikeywrite' && $session['write']) return  $user->new_apikey_write($session['userid']);
-
-        if ($route->action == 'auth' && !$session['read']) return  $user->get_apikeys_from_login(post('username'),post('password'));
 
         // Get and set - user by profile client
         if ($route->action == 'get' && $session['write']) return  $user->get($session['userid']);
@@ -128,10 +199,7 @@ function user_controller()
         }
 
 
-        if ($route->action == 'timezone' && $session['read']) return $user->get_timezone_offset($session['userid']); // to maintain compatibility but in seconds
-        if ($route->action == 'gettimezone' && $session['read']) return $user->get_timezone($session['userid']);
-        if ($route->action == 'gettimezones') return $user->get_timezones();
-           
+        // Delete all
         if ($route->action == "deleteall" && $session['write'] && $session['admin']) {
             $route->format = "text";
             $userid = $session['userid'];
@@ -145,6 +213,7 @@ function user_controller()
                 if ($mode=="permanentdelete") {
                     if (isset($_POST['password'])) {
                         // Check password
+                        $userid = (int) $userid;
                         $query_result = $mysqli->query("SELECT password, salt FROM users WHERE id = '$userid'");
                         $row = $query_result->fetch_object();
                         $hash = hash('sha256', $row->salt . hash('sha256', $_POST['password']));
@@ -173,6 +242,8 @@ function user_controller()
                 return "missing mode field";
             }
         }
+
+        // ---------------------- end of restricted section ---------------------------
     }
 
     return array('content'=>false);

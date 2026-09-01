@@ -13,7 +13,7 @@ class Rememberme {
     private $path = '/';
     private $domain = "";
     private $secure = false;
-    private $httpOnly = false;
+    private $httpOnly = true;
 
     // Number of seconds in the future the cookie and storage will expire
     private $expireTime = 7776000; // 90 days
@@ -47,12 +47,15 @@ class Rememberme {
     // ---------------------------------------------------------------------------------------------------------
     public function setCookie($content,$expire) 
     {          
-        $this->log->info("setCookie: $content $expire");
+        $this->log->info("setCookie: $expire");
 
         if (is_https()) {
             $this->secure = true;
         }
         
+        // Set httpOnly to true for security
+        $this->httpOnly = true;
+
         // May be limited to PHP7.3
         if (PHP_VERSION_ID>=70300) {
             setcookie($this->cookieName,$content, [
@@ -65,12 +68,6 @@ class Rememberme {
             ]);
         } else {
             setcookie($this->cookieName,$content,$expire,$this->path,$this->domain,$this->secure,$this->httpOnly);
-        }
-        
-        // Double check cookie saved correctly
-        if (isset($_COOKIE[$this->cookieName]) && $_COOKIE[$this->cookieName]!=$content) {
-            // $this->log->warn("setCookie error cookie=".$_COOKIE[$this->cookieName]." content=".$content);
-            // return false;
         }
         
         return true;
@@ -251,12 +248,15 @@ class Rememberme {
             $this->log->warn("getCookieValues: userid is not an integer");
             return false;
         }
-        if (preg_replace('/[^\w\s]/','',$cookieValueArray[1])!=$cookieValueArray[1]) {
-            $this->log->warn("getCookieValues: token is not alphanumeric");
+
+        // Validate token format (32-character hex string)
+        if (!preg_match('/^[a-f0-9]{32}$/', $cookieValueArray[1])) {
+            $this->log->warn("getCookieValues: token is not a valid 32-character hex string");
             return false;
         }
-        if (preg_replace('/[^\w\s]/','',$cookieValueArray[2])!=$cookieValueArray[2]) {
-            $this->log->warn("getCookieValues: token is not alphanumeric");
+        // Validate persistentToken format (32-character hex string)
+        if (!preg_match('/^[a-f0-9]{32}$/', $cookieValueArray[2])) {
+            $this->log->warn("getCookieValues: persistentToken is not a valid 32-character hex string");
             return false;
         }
         
@@ -278,24 +278,32 @@ class Rememberme {
             return self::TRIPLET_NOT_FOUND;
         }
         
-        $sha1_persistentToken = sha1($cookieValues->persistentToken);
-        $stmt->bind_param("is",$cookieValues->userid,$sha1_persistentToken);
+        $hashed_persistentToken = hash('sha256', $cookieValues->persistentToken);
+        $stmt->bind_param("is",$cookieValues->userid,$hashed_persistentToken);
         if (!$stmt->execute()) {
             $this->log->warn("findTriplet sql fail");
         }
-        $stmt->bind_result($sha1_token);
-        $stmt->fetch();
+        $hashed_token = null;
+        $stmt->bind_result($hashed_token);
+        $fetched = $stmt->fetch();
         $stmt->close();
         
-        // sha1 of token match: triplet found
-        if ($sha1_token==sha1($cookieValues->token)) {
-            $this->log->info("findTriplet TRIPLET_FOUND");
-            return self::TRIPLET_FOUND;
-            
-        // false will occur when there are no entries
-        } else if ($sha1_token==false) {
+        // fetch() returns true when a row was found, null when no rows exist
+        if ($fetched !== true) {
             $this->log->info("findTriplet TRIPLET_NOT_FOUND");
             return self::TRIPLET_NOT_FOUND;
+        }
+
+        // Row found but token is null or empty — legacy (pre-sha256) or corrupt session
+        if ($hashed_token === null || $hashed_token === "") {
+            $this->log->info("findTriplet: Legacy or null token found, invalidating session");
+            return self::TRIPLET_INVALID;
+        }
+
+        // sha256 of token match: triplet found
+        if (hash_equals((string)$hashed_token, hash('sha256', (string)$cookieValues->token))) {
+            $this->log->info("findTriplet TRIPLET_FOUND");
+            return self::TRIPLET_FOUND;
         
         // token does not match query token
         } else {
@@ -317,17 +325,25 @@ class Rememberme {
             return false;
         }
         
-        $sha1_token = sha1($cookieValues->token);
-        $sha1_persistentToken = sha1($cookieValues->persistentToken);
+        $hashed_token = hash('sha256', $cookieValues->token);
+        $hashed_persistentToken = hash('sha256', $cookieValues->persistentToken);
         
-        $stmt->bind_param("isss",$cookieValues->userid,$sha1_token,$sha1_persistentToken,$date);
-        if ($stmt->execute()) {
+        $stmt->bind_param("isss",$cookieValues->userid,$hashed_token,$hashed_persistentToken,$date);
+        try {
+            $result = $stmt->execute();
+        } catch (mysqli_sql_exception $e) {
+            $this->log->warn("storeTriplet sql fail: " . $e->getMessage() . " - database schema may need updating");
+            $stmt->close();
+            return false;
+        }
+        if ($result) {
+            $stmt->close();
             return true;
         } else {
             $this->log->warn("storeTriplet sql fail");
+            $stmt->close();
             return false;
         }
-        $stmt->close();
     }
 
     // ---------------------------------------------------------------------------------------------------------
@@ -342,8 +358,8 @@ class Rememberme {
             return false;
         }
         
-        $sha1_persistentToken = sha1($cookieValues->persistentToken);
-        $stmt->bind_param("is",$cookieValues->userid,$sha1_persistentToken);
+        $hashed_persistentToken = hash('sha256', $cookieValues->persistentToken);
+        $stmt->bind_param("is",$cookieValues->userid,$hashed_persistentToken);
         if ($stmt->execute()) {
             $this->log->info("cleanTriplet success");
             $this->cleanExpiredTriplets($cookieValues->userid);
@@ -367,8 +383,10 @@ class Rememberme {
         $stmt->bind_param("i",$userid);
         
         if ($stmt->execute()) {
+            $stmt->close();
             return true;
         } else {
+            $stmt->close();
             $this->log->warn("cleanAllTriplets sql fail");
             return false;
         }
@@ -381,6 +399,9 @@ class Rememberme {
     {
         $date = date("Y-m-d H:i:s", time());
         
+        // Add 5-minute grace period for clock skew
+        $grace_period = 300; // 5 minutes
+
         $stmt = $this->mysqli->prepare("SELECT expire FROM rememberme WHERE userid=?");
         $stmt->bind_param("i",$userid);
         $stmt->execute();
@@ -394,7 +415,7 @@ class Rememberme {
         foreach ($expire_list as $expire)
         {
             $seconds_overdue = time() - strtotime($expire);
-            if ($seconds_overdue>0) {
+            if ($seconds_overdue>$grace_period) {
                 $overdue_count++;
                 $stmt = $this->mysqli->prepare("DELETE FROM rememberme WHERE userid=? AND expire=?");
                 $stmt->bind_param("is",$userid,$expire);
