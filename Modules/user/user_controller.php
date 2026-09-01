@@ -62,6 +62,7 @@ function user_controller()
         }
         if ($route->action == 'view' && $session['write']) {
             return view("Modules/user/profile/profile.php", array(
+                'session' => $session
             ));
         }
         
@@ -126,7 +127,9 @@ function user_controller()
                     }
                 }
                 
-                return view("Modules/user/profile/profile.php",array());
+                return view("Modules/user/profile/profile.php", array(
+                    'session' => $session
+                ));
             }
         }
     }
