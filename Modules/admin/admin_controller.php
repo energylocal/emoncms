@@ -116,8 +116,6 @@ function admin_controller()
         return view("Modules/club/app/admin/club_view.php",array('session'=>$session));
     }
     
-    }
-
     // !!! REBOOT WHOLE SYSTEM - Designed for use with RaspberryPi !!!
     if ($route->action == 'reboot') {
         $route->format = 'text';
@@ -421,4 +419,3 @@ function admin_controller()
 
     return EMPTY_ROUTE;
 }
-

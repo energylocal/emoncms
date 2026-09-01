@@ -463,17 +463,22 @@ class User
 
         // Basic checks
         $remembermecheck = (int) $remembermecheck;
-        if (!$username || !$password) return array('success'=>false, 'message'=>tr("Username or password empty"));
+        if (!$username_or_email || !$password) return array('success'=>false, 'message'=>tr("Username or password empty"));
 
-        $result = $this->is_valid_username($username);
+        $result = filter_var($username_or_email, FILTER_VALIDATE_EMAIL)
+            ? $this->is_valid_email($username_or_email)
+            : $this->is_valid_username($username_or_email);
         if (!$result['success']) return $result;
+
+        // Dont go further if username does not exist.
+        $stmt = $this->mysqli->prepare("SELECT id FROM users WHERE username=? OR email=? LIMIT 1");
         $stmt->bind_param("ss",$username_or_email,$username_or_email);
         $stmt->execute();
         $stmt->bind_result($userid);
         $result = $stmt->fetch();
         $stmt->close();
 
-        // Dont go further if username does not exist.
+        if (!$result) {
             $this->log->error("Login: Username does not exist username:$username_or_email ip:".get_client_ip_env());
             return array('success'=>false, 'message'=>tr("Incorrect username or password"));
         }

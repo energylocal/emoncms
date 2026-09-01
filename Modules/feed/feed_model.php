@@ -95,11 +95,12 @@ class Feed
     */
     public function create($userid,$tag,$name,$engine,$options_in,$unit='')
     {
-      return $this->create_public($userid,$tag,$name,$engine,$options_in,false,$unit='');
+        return $this->_create($userid,$tag,$name,$engine,$options_in,false,$unit);
     }
 
-    public function create_public($userid,$tag,$name,$engine,$options_in,$unit='') {
-      return $this->_create($userid,$tag,$name,$engine,$options_in,true,$unit='');
+    public function create_public($userid,$tag,$name,$engine,$options_in,$unit='')
+    {
+        return $this->_create($userid,$tag,$name,$engine,$options_in,true,$unit);
     }
 
     public function _create($userid,$tag,$name,$engine,$options_in,$public,$unit='')
@@ -144,7 +145,7 @@ class Feed
                     'userid'=>$userid,
                     'name'=>$name,
                     'tag'=>$tag,
-                    'public'=>false,
+                    'public'=>$public,
                     'size'=>0,
                     'engine'=>$engine,
                     'unit'=>$unit
@@ -1311,10 +1312,7 @@ class Feed
         $result = $process_class->validate_processlist($userid, $id, $processlist, 1); // 1 = feed context
         if (!$result['success']) return $result;
         $processlist_out = $result['processlist'];
-                        $arg = false;
-                        break;
-                        
-    
+
         $stmt = $this->mysqli->prepare("UPDATE feeds SET processList=? WHERE id=?");
         $stmt->bind_param("si", $processlist_out, $id);
         if (!$stmt->execute()) {
@@ -1487,4 +1485,3 @@ class Feed
         }
     }
 }
-

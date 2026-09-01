@@ -90,10 +90,14 @@
                                   $array[$key] = $feedid;
                                   $array[$key.'name'] = $f['name'];
 
-                                  if ($f['userid']!=$session['userid']) $array['valid'] = false;
-                                  if ($f['public']) $array['valid'] = true;
+                                  if ($f['userid']!=$session['userid']) {
+                                      $array['valid'] = false;
                                         $array['message'] = "authentication not valid";
+                                  }
+                                  if ($f['public']) {
+                                      $array['valid'] = true;
                                         $array['message'] = '';
+                                  }
                               } else {
                                   $array['valid'] = false;
                                     $array['message'] = 'feed name not set';
@@ -103,12 +107,15 @@
                                 $array['message'] = 'invalid feedid';
                             }
                         }
-                        else if ($type==4) // Boolean
-                            if (get($key) == "true" || get($key) == 1)
+                        else if ($type==4) { // Boolean
+                            if (get($key) == "true" || get($key) == 1) {
                                 $array[$key] = 1;
-                            else if (get($key) || get($key) == "false" || get($key) == 0)
+                            } else if (get($key) || get($key) == "false" || get($key) == 0) {
                                 $array[$key] = 0;
-                            else $array[$key] = $default;
+                            } else {
+                                $array[$key] = $default;
+                            }
+                        }
                         elseif ($type==5 && !is_null(get($key))) {
                             $sanitized = preg_replace('/[^\p{L}_\p{N}\s£$€¥₽]/u','',get($key));
                             $array[$key] = ($sanitized !== '') ? $sanitized : $default;
@@ -122,8 +129,10 @@
                             if ($mid) {
                               $f = $multigraph->get($mid,$session['userid']);
                               $array[$key] = intval(($mid?$mid:$default));
-                              if (!isset($f['feedlist'])) $array['valid'] = false;
+                              if (!isset($f['feedlist'])) {
+                                  $array['valid'] = false;
                                   $array['message'] = 'invalid feedlist';
+                              }
                             } else {
                               $array['valid'] = false;
                               $array['message'] = 'invalid multigraph id';
@@ -132,9 +141,10 @@
 
                         # we need to either urlescape the colour, or just scrub out invalid chars. I'm doing the second, since
                         # we can be fairly confident that colours are eiter a hex or a simple word (e.g. "blue" or such)
-                        else if ($type==9 && !is_null(get($key))) // Color
+                        else if ($type==9 && !is_null(get($key))) { // Color
                             $sanitized = preg_replace('/[^\dA-Za-z#]/', '', get($key));
                             $array[$key] = ($sanitized !== '') ? $sanitized : $default;
+                        }
                     }
                 }
 
@@ -155,15 +165,20 @@
     MULTIGRAPH ACTIONS
     */
 
-    else if ($route->format == 'json' && $route->action == 'multigraph')
+    elseif ($route->format == 'json' && $route->action == 'multigraph')
     {
-        if ($route->subaction == 'get') $result = $multigraph->get(get('id'),$session['userid']);
-        else if ($route->subaction == 'getlist') $result = $multigraph->getlist($session['userid']);
+        if ($route->subaction == 'get') {
+            $result = $multigraph->get(get('id'),$session['userid']);
         } elseif ($route->subaction == 'getlist' && $session['read']) {
-        else if ($session['write']) {
-            if ($route->subaction == 'new') $result = $multigraph->create($session['userid']);
-            else if ($route->subaction == 'delete') $result = $multigraph->delete(get('id'),$session['userid']);
-            else if ($route->subaction == 'set') $result = $multigraph->set(get('id'),$session['userid'],get('feedlist'),get('name'));
+            $result = $multigraph->getlist($session['userid']);
+        } elseif ($session['write']) {
+            if ($route->subaction == 'new') {
+                $result = $multigraph->create($session['userid']);
+            } elseif ($route->subaction == 'delete') {
+                $result = $multigraph->delete(get('id'),$session['userid']);
+            } elseif ($route->subaction == 'set') {
+                $result = $multigraph->set(get('id'),$session['userid'],get('feedlist'),get('name'));
+            }
         }
 
     }
